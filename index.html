@@ -91,6 +91,11 @@
     display:flex; justify-content:space-between; margin-top:5px;
     font-size:11.5px; color:var(--silik); letter-spacing:.3px;
   }
+  .bekleyen{
+    display:block; width:100%; margin-top:8px; padding:7px 10px;
+    background:var(--uyari-soft); color:var(--uyari); border:0; border-radius:7px;
+    font:inherit; font-size:12px; font-weight:600; cursor:pointer; text-align:left;
+  }
 
   h2{
     font-family:Archivo, system-ui, sans-serif; font-weight:700;
@@ -131,6 +136,23 @@
   .cip.tamam{background:var(--ok-soft); color:var(--ok)}
   .cip.basla{background:var(--uyari-soft); color:var(--uyari)}
   .cip.dis{background:var(--vurgu-soft); color:var(--vurgu)}
+  .cip.dur{background:var(--hata-soft); color:var(--hata)}
+  .adim.basladi .no{background:var(--uyari-soft); border-color:transparent; color:var(--uyari)}
+  .adim.durdu .no{background:var(--hata-soft); border-color:transparent; color:var(--hata)}
+
+  /* adımın o anki durumu — form başlığının hemen altında */
+  .adim-durum{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:9px 11px; border-radius:var(--r); background:var(--yuzey2);
+    border:1px solid var(--cizgi); margin-bottom:12px;
+  }
+  .adim-durum span:last-child{font-size:12.5px; color:var(--ink2); flex:1 1 180px; line-height:1.35}
+  label.alan.hatali input{border-color:var(--hata); background:var(--hata-soft)}
+
+  /* Kendi display kuralımız olan öğelerde (label.alan, .kart, .bekleyen...)
+     tarayıcının [hidden] kuralı eziliyordu: gizlenmesi gereken alanlar
+     Pages sürümünde görünür kalıyordu. */
+  [hidden]{display:none !important}
 
   /* ---------- form ---------- */
   label.alan{display:block; margin-top:12px}
@@ -235,6 +257,7 @@
 </style>
 </head>
 <body>
+
 <div class="sayfa">
   <header class="kunye">
     <div class="ust">
@@ -252,6 +275,7 @@
       <div class="cubuk"><span id="k-cubuk"></span></div>
       <div class="yazi"><span id="k-ilerleme">0 / 0 adım kapatıldı</span><span id="k-cihaz">bu telefonda</span></div>
     </div>
+    <button type="button" class="bekleyen" id="bekleyen" hidden></button>
   </header>
 
   <main>
@@ -265,7 +289,11 @@
       <h2 id="secili-baslik">Operasyon Teyidi</h2>
 
       <div class="kart">
-        <label class="alan">
+        <div class="adim-durum" id="adim-durum">
+          <span class="cip ac" id="adim-durum-cip">Açık</span>
+          <span id="adim-durum-yazi">Bu adımda henüz kayıt yok.</span>
+        </div>
+        <label class="alan" style="margin-top:0">
           <span class="etiket">Durum</span>
           <div class="secim" id="durum-secim">
             <button type="button" data-deger="BASLADI">Başladı</button>
@@ -273,27 +301,33 @@
             <button type="button" data-deger="TAMAM" aria-pressed="true">Tamamlandı</button>
           </div>
         </label>
+        <p class="not">Her durum <b>ayrı bir kayıttır</b>. Sabah «Başladı», öğlen
+          «Duraklatıldı», akşam «Tamamlandı» girebilirsiniz — adım kapanana kadar
+          aynı adıma istediğiniz kadar kayıt açılır.</p>
         <div class="ikili" style="margin-top:12px">
           <label class="alan" style="margin:0">
-            <span class="etiket">Kaşe No *</span>
-            <input type="text" id="kase" inputmode="numeric" autocomplete="off" placeholder="1147">
+            <span class="etiket">Kaşe / Sicil No *</span>
+            <input type="text" id="kase" inputmode="numeric" autocomplete="off"
+                   placeholder="1147" aria-required="true">
           </label>
           <label class="alan" style="margin:0">
             <span class="etiket">Tezgah</span>
             <input type="text" id="tezgah" autocomplete="off" placeholder="DMU 60">
           </label>
         </div>
+        <p class="not">Sicil numarası <b>her kayıtta zorunludur</b> ve her adımda
+          boş gelir: işlemi kimin yaptığı yanlış kişiye yazılmasın.</p>
         <div class="ikili" style="margin-top:12px">
           <label class="alan" style="margin:0">
             <span class="etiket">Başlangıç</span>
             <input type="time" id="bas-saat">
           </label>
-          <label class="alan" style="margin:0">
+          <label class="alan" style="margin:0" id="bit-alan">
             <span class="etiket">Bitiş</span>
             <input type="time" id="bit-saat">
           </label>
         </div>
-        <div class="ikili" style="margin-top:12px">
+        <div class="ikili" style="margin-top:12px" id="sure-alan">
           <label class="alan" style="margin:0">
             <span class="etiket">Kurulum (dk)</span>
             <input type="number" id="kurulum" inputmode="numeric" min="0" step="1" placeholder="0">
@@ -305,8 +339,8 @@
         </div>
       </div>
 
-      <h2>Üretim Adedi</h2>
-      <div class="kart">
+      <h2 id="adet-baslik">Üretim Adedi</h2>
+      <div class="kart" id="adet-kart">
         <div class="uclu">
           <label class="alan" style="margin:0">
             <span class="etiket">İyi</span>
@@ -415,8 +449,8 @@
         </label>
       </div>
 
-      <h2>Devir</h2>
-      <div class="kart">
+      <h2 id="devir-baslik">Devir</h2>
+      <div class="kart" id="devir-kart">
         <label class="anahtar">
           <input type="checkbox" id="devir-var" checked>
           <span class="metin">Sonraki adıma aktar
@@ -429,11 +463,15 @@
     <section id="cikti" hidden>
       <h2>Planlamaya Gönderilecek Kayıt</h2>
       <div class="kart">
-        <a class="btn" id="form-gonder" hidden
-           style="display:flex; align-items:center; justify-content:center; text-decoration:none; margin-bottom:12px"
-           target="_blank" rel="noopener">Google Form'a Gönder</a>
-        <p class="not" id="form-ipucu" hidden style="margin-top:-6px">
-          Form yeni sekmede dolu açılır — orada <b>Gönder</b>'e basmayı unutmayın.</p>
+        <div class="banner" id="gonderim-durum" hidden></div>
+        <div class="row" id="gonderim-eylem" hidden
+             style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap">
+          <button class="btn ikincil" type="button" id="yeniden-dene" hidden
+                  style="flex:1 1 auto">Yeniden gönder</button>
+          <a class="btn ikincil" id="form-gonder" hidden target="_blank" rel="noopener"
+             style="flex:1 1 auto; display:flex; align-items:center; justify-content:center; text-decoration:none">
+            Formu elle aç</a>
+        </div>
         <div class="cikti-kod" id="cikti-metin"></div>
         <div id="qr-kutu"></div>
         <p class="not">Kayıt planlamaya Google Form ile gider. Bağlantı yoksa bu QR'ı
@@ -578,10 +616,33 @@
       localStorage.setItem(anahtar(), JSON.stringify(liste.slice(0, 60)));
     } catch (e) { /* depolama kapalı olabilir; akış bozulmaz */ }
   }
-  function kapatilanlar() {
+  /* Her adımın SON durumu. Kayıtlar yeniden eskiye saklandığı için ilk
+     görülen kayıt en günceldir; sonrakiler atlanır. (Önceki sürüm son
+     yazılanı değil ilk yazılanı gösteriyordu: "Başladı"dan sonra
+     "Tamamlandı" işlense bile liste "Başladı" kalıyordu.) */
+  function adimDurumlari() {
     var s = {};
-    kayitlariOku().forEach(function (k) { s[k.no] = k.durum; });
+    kayitlariOku().forEach(function (k) {
+      if (!s[k.no]) s[k.no] = k;
+    });
     return s;
+  }
+
+  /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
+  var DURUM_AD = { BASLADI: "Başladı", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı" };
+  var DURUM_CIP = { BASLADI: "basla", DURAKLADI: "dur", TAMAM: "tamam" };
+
+  /* Bir adımın son durumuna göre sırada mantıken hangi kaydın geleceği.
+     Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
+  function oneriDurum(son) {
+    if (!son) return "BASLADI";
+    if (son === "BASLADI") return "TAMAM";
+    if (son === "DURAKLADI") return "BASLADI";   // devam = yeniden başladı
+    return "TAMAM";
+  }
+
+  function adimKayitlari(no) {
+    return kayitlariOku().filter(function (k) { return k.no === no; });
   }
 
   /* ============================================================== çizim ==*/
@@ -597,8 +658,8 @@
   }
 
   function ilerlemeyiCiz() {
-    var k = kapatilanlar(), n = 0;
-    is.a.forEach(function (x) { if (k[x[0]] === "TAMAM") n++; });
+    var k = adimDurumlari(), n = 0;
+    is.a.forEach(function (x) { if (k[x[0]] && k[x[0]].durum === "TAMAM") n++; });
     var yuzde = is.a.length ? Math.round(n / is.a.length * 100) : 0;
     $("#k-cubuk").style.width = yuzde + "%";
     $("#k-ilerleme").textContent = n + " / " + is.a.length + " adım kapatıldı";
@@ -613,21 +674,24 @@
       var a = document.createElement("span");
       a.style.flex = "1"; a.textContent = "Adım " + g.no + " · " + g.ad;
       var c = document.createElement("span");
-      c.className = "cip " + (g.durum === "TAMAM" ? "tamam" : "basla");
-      c.textContent = g.durum === "TAMAM" ? "Tamam" : g.durum === "BASLADI" ? "Başladı" : "Durdu";
+      c.className = "cip " + (DURUM_CIP[g.durum] || "ac");
+      c.textContent = DURUM_AD[g.durum] || g.durum;
       li.appendChild(z); li.appendChild(a); li.appendChild(c);
       ul.appendChild(li);
     });
   }
 
   function listeyiCiz() {
-    var kutu = $("#adim-listesi"), k = kapatilanlar();
+    var kutu = $("#adim-listesi"), k = adimDurumlari();
     kutu.textContent = "";
     is.a.forEach(function (x) {
       var no = x[0], ad = x[1], icdis = x[2] || "";
+      var d = k[no] ? k[no].durum : "";
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "adim" + (k[no] === "TAMAM" ? " kapali" : "");
+      b.className = "adim" + (d === "TAMAM" ? " kapali"
+                            : d === "BASLADI" ? " basladi"
+                            : d === "DURAKLADI" ? " durdu" : "");
       b.setAttribute("aria-pressed", secili && secili[0] === no ? "true" : "false");
       var nb = document.createElement("span");
       nb.className = "no"; nb.textContent = no;
@@ -639,9 +703,8 @@
       altEl.className = "alt"; altEl.textContent = icdis;
       orta.appendChild(adEl); orta.appendChild(altEl);
       var cip = document.createElement("span");
-      if (k[no] === "TAMAM") { cip.className = "cip tamam"; cip.textContent = "Kapandı"; }
-      else if (k[no]) { cip.className = "cip basla"; cip.textContent = "Devam"; }
-      else { cip.className = "cip ac"; cip.textContent = "Açık"; }
+      cip.className = "cip " + (DURUM_CIP[d] || "ac");
+      cip.textContent = d ? DURUM_AD[d] : "Açık";
       b.appendChild(nb); b.appendChild(orta); b.appendChild(cip);
       b.addEventListener("click", function () { adimSec(x); });
       kutu.appendChild(b);
@@ -653,21 +716,104 @@
     return (i >= 0 && i + 1 < is.a.length) ? is.a[i + 1] : null;
   }
 
+  /* Her adım BOŞ formla başlar. En önemlisi kaşe/sicil no: bir öncekinin
+     numarası taşınırsa operasyon YANLIŞ kişinin üzerine kaydedilir. */
+  function formuBosalt() {
+    ["kase", "tezgah", "bas-saat", "bit-saat", "kurulum", "isleme",
+     "iyi", "hurda", "yeniden", "fai-kase", "apa-no", "sap-metin",
+     "sap-adet", "sap-kase", "not-metin"].forEach(function (id) {
+      var e = $("#" + id);
+      if (e) e.value = "";
+    });
+    $("#hurda-neden").value = "";
+    $("#hurda-neden-alan").hidden = true;
+    ["fai-var", "apa-var", "sap-var"].forEach(function (id) {
+      $("#" + id).checked = false;
+    });
+    $("#fai-ek").hidden = true;
+    $("#apa-ek").hidden = true;
+    $("#sap-ek").hidden = true;
+    $("#sapma-kart").classList.remove("sapma");
+    durum.durum = "TAMAM"; durum.fai = "BEKLIYOR"; durum.apa = "MEVCUT";
+    [["#durum-secim", "TAMAM"], ["#fai-secim", "BEKLIYOR"], ["#apa-secim", "MEVCUT"]]
+      .forEach(function (ç) {
+        Array.prototype.forEach.call($(ç[0]).querySelectorAll("button"), function (b) {
+          b.setAttribute("aria-pressed", b.dataset.deger === ç[1] ? "true" : "false");
+        });
+      });
+    $("#gonderim-durum").hidden = true;
+    $("#gonderim-eylem").hidden = true;
+  }
+
+  /* Adımın o anki durumunu form başlığının altında gösterir ve sıradaki
+     kaydı önerir. Adım "kapandı" diye kilitlenmez: düzeltme kaydı açılabilir. */
+  function adimDurumGoster(no) {
+    var liste = adimKayitlari(no);
+    var son = liste.length ? liste[0] : null;
+    var d = son ? son.durum : "";
+    $("#adim-durum-cip").className = "cip " + (DURUM_CIP[d] || "ac");
+    $("#adim-durum-cip").textContent = d ? DURUM_AD[d] : "Açık";
+    var y;
+    if (!son) {
+      y = "Bu adımda henüz kayıt yok — genelde önce «Başladı» girilir.";
+    } else {
+      y = DURUM_AD[d] + " · " + son.saat + (son.kase ? " · kaşe " + son.kase : "");
+      if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
+      else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
+      else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
+      if (liste.length > 1) y += " (bu adımda " + liste.length + " kayıt)";
+    }
+    $("#adim-durum-yazi").textContent = y;
+    return d;
+  }
+
+  /* Durumu hem nesneye hem düğmelere işler. */
+  function durumUygula(deger) {
+    durum.durum = deger;
+    Array.prototype.forEach.call($("#durum-secim").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.deger === deger ? "true" : "false");
+    });
+    adetGorunurlugu();
+  }
+
+  /* Form seçilen duruma göre daralır/genişler:
+       Başladı      → parça yok, bitiş saati yok, devir yok (iş daha yeni açıldı)
+       Duraklatıldı → o ana kadarki adet girilir, devir YOK (adım hâlâ bizde)
+       Tamamlandı   → adet + bitiş saati + sonraki adıma devir */
+  function adetGorunurlugu() {
+    var d = durum.durum;
+    var basladi = d === "BASLADI", tamam = d === "TAMAM";
+    $("#adet-baslik").hidden = basladi;
+    $("#adet-kart").hidden = basladi;
+    $("#bit-alan").hidden = basladi;
+    $("#sure-alan").hidden = basladi;      // süreler işin sonunda yazılır
+
+    var s = secili ? sonraki(secili[0]) : null;
+    $("#devir-baslik").hidden = !tamam;
+    $("#devir-kart").hidden = !tamam;
+    $("#devir-var").disabled = !tamam || !s;
+    $("#devir-var").checked = tamam && !!s;
+
+    var simdi = new Date().toTimeString().slice(0, 5);
+    if (basladi) { if (!$("#bas-saat").value) $("#bas-saat").value = simdi; }
+    else if (!$("#bit-saat").value) $("#bit-saat").value = simdi;
+  }
+
   function adimSec(x) {
     secili = x;
+    formuBosalt();
     $("#secili-baslik").textContent = "Adım " + x[0] + " — " + x[1];
+    durumUygula(oneriDurum(adimDurumGoster(x[0])));
     $("#teyit").hidden = false;
     $("#cikti").hidden = true;
     $("#form-hata").hidden = true;
     var s = sonraki(x[0]);
     $("#devir-hedef").textContent = s ? ("Sıradaki: " + s[0] + " · " + s[1])
                                       : "Bu son adım — devir yok";
-    $("#devir-var").disabled = !s;
-    $("#devir-var").checked = !!s;
-    var simdi = new Date().toTimeString().slice(0, 5);
-    if (!$("#bit-saat").value) $("#bit-saat").value = simdi;
+    adetGorunurlugu();                 // durum önerisi geldikten sonra son hâli
     $("#btn-ana").disabled = false;
-    $("#btn-ana").textContent = "Kaydı Oluştur";
+    $("#btn-ana").textContent = "Kaydet ve Gönder";
+    delete $("#btn-ana").dataset.mod;
     $("#btn-geri").hidden = false;
     listeyiCiz();
     $("#teyit").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -686,6 +832,7 @@
     });
   }
   secimBagla("#durum-secim", "durum");
+  $("#durum-secim").addEventListener("click", adetGorunurlugu);
   secimBagla("#fai-secim", "fai");
   secimBagla("#apa-secim", "apa");
 
@@ -710,13 +857,18 @@
     ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
     ek("ADIM", secili[0]); ek("AD", secili[1]);
     ek("D", durum.durum);
+    var oncekiler = adimKayitlari(secili[0]);
+    if (oncekiler.length) ek("ONCE", oncekiler[0].durum);   // planlama sırayı görsün
     ek("KASE", $("#kase").value.trim());
     ek("TZG", $("#tezgah").value.trim());
-    ek("BAS", $("#bas-saat").value); ek("BIT", $("#bit-saat").value);
-    ek("KUR", $("#kurulum").value); ek("ISL", $("#isleme").value);
-    ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
-    if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
-    ek("YEN", $("#yeniden").value);
+    ek("BAS", $("#bas-saat").value);
+    if (durum.durum !== "BASLADI") {           // iş yeni açıldıysa bitiş/adet olmaz
+      ek("BIT", $("#bit-saat").value);
+      ek("KUR", $("#kurulum").value); ek("ISL", $("#isleme").value);
+      ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
+      if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
+      ek("YEN", $("#yeniden").value);
+    }
     if ($("#fai-var").checked) { ek("FAI", durum.fai); ek("FKASE", $("#fai-kase").value.trim()); }
     if ($("#apa-var").checked) { ek("APA", durum.apa); ek("APANO", $("#apa-no").value.trim()); }
     if ($("#sap-var").checked) {
@@ -725,7 +877,9 @@
     }
     ek("NOT", $("#not-metin").value.trim());
     var s = sonraki(secili[0]);
-    if ($("#devir-var").checked && s) ek("DEVIR", s[0]);
+    // Devir YALNIZCA adım tamamlandığında olur; başlama/duraklatma kaydı
+    // adımı sonraki aşamaya göndermez.
+    if (durum.durum === "TAMAM" && $("#devir-var").checked && s) ek("DEVIR", s[0]);
     ek("T", new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }));
     return p.join("|");
   }
@@ -744,9 +898,22 @@
     }
   }
 
+  function kaseAlani() { return $("#kase").parentNode; }
+  $("#kase").addEventListener("input", function () {
+    kaseAlani().classList.remove("hatali");
+  });
+
   function kaydiOlustur() {
+    /* Sicil no HER kayıtta zorunlu: tek bir adımda birden çok kayıt açıldığı
+       için, hangi kaydı kimin girdiği ancak böyle ayırt edilir. */
     var kase = $("#kase").value.trim();
-    if (!/^\d{1,6}$/.test(kase)) { hata("Kaşe numaranızı yazın (yalnızca rakam)."); return; }
+    if (!/^\d{1,6}$/.test(kase)) {
+      kaseAlani().classList.add("hatali");
+      $("#kase").focus();
+      hata("Kaşe / sicil numaranızı yazın (yalnızca rakam). Her işlem adımında zorunludur.");
+      return;
+    }
+    kaseAlani().classList.remove("hatali");
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
       hata("Sapma isteği için açıklama zorunlu."); return;
     }
@@ -754,19 +921,41 @@
     $("#form-hata").hidden = true;
     $("#cikti-metin").textContent = metin;
     qrCiz(metin);
+
     var baglanti = formBaglantisi(metin);
+    $("#form-gonder").href = baglanti || "#";
+    $("#gonderim-eylem").hidden = !baglanti;
     $("#form-gonder").hidden = !baglanti;
-    $("#form-ipucu").hidden = !baglanti;
-    if (baglanti) $("#form-gonder").href = baglanti;
+    $("#yeniden-dene").hidden = true;
     $("#cikti").hidden = false;
+
     kayitYaz({
-      no: secili[0], ad: secili[1], durum: durum.durum,
+      no: secili[0], ad: secili[1], durum: durum.durum, kase: kase,
       saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
     });
-    ilerlemeyiCiz(); listeyiCiz();
+    ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
     $("#btn-ana").textContent = "Metni Kopyala";
     $("#btn-ana").dataset.mod = "kopya";
     $("#cikti").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // --- Kaydı forma KENDİLİĞİNDEN gönder ---
+    var paket = gonderimGovdesi(metin);
+    if (!paket) {
+      durumGoster("warn", "Google Form bağlı değil — kayıt aşağıdaki QR ya da metinle iletilir.");
+      return;
+    }
+    durumGoster("", "Gönderiliyor…");
+    gonder(paket).then(function () {
+      durumGoster("ok", "✓ Gönderildi — planlamanın tablosuna düştü ("
+        + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) + ")");
+      $("#form-gonder").hidden = true;      // elle açmaya gerek kalmadı
+    }).catch(function () {
+      kuyrugaAl(paket);
+      bekleyeniGoster();
+      durumGoster("warn", "Bağlantı yok — kayıt telefonda saklandı, internet gelince "
+        + "kendiliğinden gönderilecek. Acilse 'Yeniden gönder'e dokunun.");
+      $("#yeniden-dene").hidden = false;
+    });
   }
 
   function hata(m) { var e = $("#form-hata"); e.textContent = m; e.hidden = false; }
@@ -796,20 +985,89 @@
     setTimeout(function () { $("#ayar-url").focus(); }, 400);
   });
 
-  function formBaglantisi(metin) {
-    var a = ayarOku();
-    if (!a) return "";
-    var d = {
+  /* Google Form alanları: A1..A7 -> entry numaraları */
+  function formAlanlari(metin) {
+    return {
       A1: is.ie, A2: secili[0] + " · " + secili[1], A3: durum.durum,
       A4: $("#kase").value.trim(), A5: $("#iyi").value || "0",
       A6: $("#sap-var").checked ? "VAR" : "-", A7: metin
     };
-    var p = [];
+  }
+
+  function formBaglantisi(metin) {
+    var a = ayarOku();
+    if (!a) return "";
+    var d = formAlanlari(metin), p = [];
     Object.keys(d).forEach(function (k) {
       if (a.alan[k]) p.push("entry." + a.alan[k] + "=" + encodeURIComponent(d[k]));
     });
     return "https://docs.google.com/forms/d/e/" + a.formId +
            "/viewform?usp=pp_url&" + p.join("&");
+  }
+
+  /* ---------------------------------------------- otomatik gönderim ------
+     Kayıt doğrudan formun formResponse ucuna POST edilir; operatör Google
+     formunu hiç görmez. Yanıt "opaque" gelir (Google başka kaynaktan okumaya
+     izin vermez), bu yüzden BAŞARI = isteğin ağa çıkabilmesidir. Çıkamazsa
+     kayıt telefonda kuyruğa alınır ve bağlantı gelince yeniden denenir. */
+  function gonderimGovdesi(metin) {
+    var a = ayarOku();
+    if (!a) return null;
+    var d = formAlanlari(metin), veri = {};
+    Object.keys(d).forEach(function (k) {
+      if (a.alan[k]) veri["entry." + a.alan[k]] = d[k];
+    });
+    return { url: "https://docs.google.com/forms/d/e/" + a.formId + "/formResponse",
+             veri: veri, metin: metin };
+  }
+
+  function gonder(paket) {
+    var fd = new FormData();
+    Object.keys(paket.veri).forEach(function (k) { fd.append(k, paket.veri[k]); });
+    return fetch(paket.url, { method: "POST", mode: "no-cors", body: fd });
+  }
+
+  function kuyrukOku() {
+    try { return JSON.parse(localStorage.getItem("muif-kuyruk") || "[]"); }
+    catch (e) { return []; }
+  }
+  function kuyrukYaz(k) {
+    try { localStorage.setItem("muif-kuyruk", JSON.stringify(k.slice(0, 200))); }
+    catch (e) { /* depolama kapalı */ }
+  }
+  function kuyrugaAl(paket) {
+    var k = kuyrukOku(); k.push(paket); kuyrukYaz(k);
+  }
+
+  /* Bekleyen kayıtları sırayla göndermeyi dener. */
+  function kuyruguBosalt() {
+    var k = kuyrukOku();
+    if (!k.length) return Promise.resolve(0);
+    var kalan = [], gonderilen = 0;
+    return k.reduce(function (zincir, paket) {
+      return zincir.then(function () {
+        return gonder(paket).then(function () { gonderilen++; })
+                            .catch(function () { kalan.push(paket); });
+      });
+    }, Promise.resolve()).then(function () {
+      kuyrukYaz(kalan);
+      bekleyeniGoster();
+      return gonderilen;
+    });
+  }
+
+  function bekleyeniGoster() {
+    var n = kuyrukOku().length;
+    var e = $("#bekleyen");
+    e.hidden = n === 0;
+    e.textContent = n ? (n + " kayıt gönderilmeyi bekliyor — dokunun") : "";
+  }
+
+  function durumGoster(sinif, metin) {
+    var b = $("#gonderim-durum");
+    b.className = "banner " + sinif;
+    b.textContent = metin;
+    b.hidden = false;
   }
 
   $("#ayar-bagla").addEventListener("click", function () {
@@ -883,11 +1141,34 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
+  /* Bekleyen kayıtlar: açılışta, internet gelince ve rozete dokununca dener. */
+  $("#yeniden-dene").addEventListener("click", function () {
+    var b = this;
+    b.disabled = true; b.textContent = "Gönderiliyor…";
+    kuyruguBosalt().then(function (n) {
+      b.disabled = false; b.textContent = "Yeniden gönder";
+      if (n > 0) {
+        durumGoster("ok", "✓ " + n + " kayıt gönderildi.");
+        b.hidden = true;
+      } else {
+        durumGoster("warn", "Hâlâ bağlantı yok. Kayıt telefonda duruyor, kaybolmaz.");
+      }
+    });
+  });
+  $("#bekleyen").addEventListener("click", function () {
+    this.textContent = "Gönderiliyor…";
+    kuyruguBosalt().then(bekleyeniGoster);
+  });
+  window.addEventListener("online", function () { kuyruguBosalt(); });
+
   formBagliMi();
+  bekleyeniGoster();
+  kuyruguBosalt();
   var qrdan = yukuCoz(decodeURIComponent(location.hash || "")) ||
               yukuCoz(decodeURIComponent(location.search || ""));
   isiYukle(qrdan || ORNEK, !!qrdan);
 })();
 </script>
+
 </body>
 </html>
