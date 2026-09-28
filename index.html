@@ -137,27 +137,8 @@
   .cip.basla{background:var(--uyari-soft); color:var(--uyari)}
   .cip.dis{background:var(--vurgu-soft); color:var(--vurgu)}
   .cip.dur{background:var(--hata-soft); color:var(--hata)}
-  .cip.parca{background:var(--vurgu-soft); color:var(--vurgu)}
-  .adim.parcada .no{background:var(--vurgu-soft); border-color:transparent; color:var(--vurgu)}
-
-  /* parça sayacı: her parça çıktığında +1 */
-  .sayac{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-  .sayac button{
-    flex:0 0 52px; height:52px; border-radius:10px; font:inherit; font-size:22px; font-weight:600;
-    background:var(--yuzey2); color:var(--ink); border:1px solid var(--cizgi2); cursor:pointer;
-  }
-  .sayac button.arti{background:var(--vurgu); color:var(--vurgu-ink); border-color:var(--vurgu)}
-  .sayac .deger{flex:1; text-align:center; line-height:1.15}
-  .sayac .deger b{
-    display:block; font-family:"IBM Plex Mono", monospace; font-size:30px;
-    font-variant-numeric:tabular-nums;
-  }
-  .sayac .deger small{font-size:12px; color:var(--silik)}
-  .sure-bilgi{
-    margin:10px 0 0; padding:9px 11px; border-radius:var(--r); background:var(--vurgu-soft);
-    color:var(--ink); font-size:13px; line-height:1.45;
-  }
-  .sure-bilgi b{font-variant-numeric:tabular-nums}
+  .cip.setup{background:var(--vurgu-soft); color:var(--vurgu)}
+  .adim.setupta .no{background:var(--vurgu-soft); border-color:transparent; color:var(--vurgu)}
   .adim.basladi .no{background:var(--uyari-soft); border-color:transparent; color:var(--uyari)}
   .adim.durdu .no{background:var(--hata-soft); border-color:transparent; color:var(--hata)}
 
@@ -169,6 +150,11 @@
   }
   .adim-durum span:last-child{font-size:12.5px; color:var(--ink2); flex:1 1 180px; line-height:1.35}
   label.alan.hatali input{border-color:var(--hata); background:var(--hata-soft)}
+  .sure-ozet{
+    margin:10px 0 0; padding:9px 11px; border-radius:var(--r); background:var(--vurgu-soft);
+    color:var(--ink); font-size:13px; line-height:1.45; font-variant-numeric:tabular-nums;
+  }
+  .sure-ozet.ters{background:var(--hata-soft); color:var(--hata)}
 
   /* Kendi display kuralımız olan öğelerde (label.alan, .kart, .bekleyen...)
      tarayıcının [hidden] kuralı eziliyordu: gizlenmesi gereken alanlar
@@ -318,14 +304,14 @@
           <span class="etiket">Durum</span>
           <div class="secim" id="durum-secim">
             <button type="button" data-deger="BASLADI">Başladı</button>
-            <button type="button" data-deger="PARCA">Parça çıktı</button>
+            <button type="button" data-deger="SETUP">Setup'ta</button>
             <button type="button" data-deger="DURAKLADI">Duraklatıldı</button>
             <button type="button" data-deger="TAMAM" aria-pressed="true">Tamamlandı</button>
           </div>
         </label>
-        <p class="not">Her durum <b>ayrı bir kayıttır</b>. «Başladı» → her parça
-          tezgahtan çıktıkça «Parça çıktı» → gerekirse «Duraklatıldı» → «Tamamlandı».
-          Başlangıç saati kapatırken kendiliğinden gelir.</p>
+        <p class="not">Her durum <b>ayrı bir kayıttır</b>: «Başladı» / «Setup'ta» →
+          gerekirse «Duraklatıldı» → «Tamamlandı». Setup süresi, «Setup'ta» kaydından
+          bir sonraki kayda kadar geçen süredir ve kendiliğinden hesaplanır.</p>
         <div class="ikili" style="margin-top:12px">
           <label class="alan" style="margin:0">
             <span class="etiket">Kaşe / Sicil No *</span>
@@ -349,13 +335,14 @@
             <input type="time" id="bit-saat">
           </label>
         </div>
+        <p class="sure-ozet" id="sure-ozet" hidden></p>
         <div class="ikili" style="margin-top:12px" id="sure-alan">
           <label class="alan" style="margin:0">
             <span class="etiket">Kurulum (dk)</span>
             <input type="number" id="kurulum" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
           <label class="alan" style="margin:0">
-            <span class="etiket">İşleme (dk)</span>
+            <span class="etiket">Toplam işleme (dk)</span>
             <input type="number" id="isleme" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
         </div>
@@ -363,14 +350,9 @@
 
       <h2 id="adet-baslik">Üretim Adedi</h2>
       <div class="kart" id="adet-kart">
-        <div class="sayac" id="sayac">
-          <button type="button" id="say-eksi" aria-label="Bir azalt">−</button>
-          <div class="deger"><b id="say-deger">0</b><small id="say-alt">parça çıktı</small></div>
-          <button type="button" id="say-arti" class="arti" aria-label="Bir parça daha">+1</button>
-        </div>
         <div class="uclu">
           <label class="alan" style="margin:0">
-            <span class="etiket">İyi (toplam)</span>
+            <span class="etiket">İyi</span>
             <input type="number" id="iyi" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
           <label class="alan" style="margin:0">
@@ -395,7 +377,6 @@
           </select>
         </label>
         <p class="not" id="adet-ozet">Planlanan adet: —</p>
-        <p class="sure-bilgi" id="sure-bilgi" hidden></p>
       </div>
 
       <h2>İlk Parça Onayı</h2>
@@ -593,7 +574,7 @@
      Tek telefonda denemek için oradan bağlamanız yeterli (tarayıcıda saklanır). */
   var AYAR = {
     formId: "1FAIpQLScOD-y3JhZAaXKjj88HhmeZ_iexlh5EJg8N1h1XR8VXmipD-g",
-    alan: {"A1": "885226271", "A2": "966772182", "A3": "1515106543", "A4": "1351516338", "A5": "1036551228", "A6": "83527246", "A7": "28059196"}
+    alan: {"A1": "885226271", "A2": "966772182", "A3": "1515106543", "A4": "1351516338", "A5": "1036551228", "A6": "83527246", "A7": "28059196", "A8": "1979238332", "A9": "671181483"}
   };
 
   var ON_EK = "MUIF1";          // QR yükünün başındaki imza
@@ -641,7 +622,7 @@
     try {
       var liste = kayitlariOku();
       liste.unshift(k);
-      localStorage.setItem(anahtar(), JSON.stringify(liste.slice(0, 600)));
+      localStorage.setItem(anahtar(), JSON.stringify(liste.slice(0, 60)));
     } catch (e) { /* depolama kapalı olabilir; akış bozulmaz */ }
   }
   /* Her adımın SON durumu. Kayıtlar yeniden eskiye saklandığı için ilk
@@ -657,81 +638,21 @@
   }
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
-  var DURUM_AD = { BASLADI: "Başladı", PARCA: "Parça çıktı", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı" };
-  var DURUM_CIP = { BASLADI: "basla", PARCA: "parca", DURAKLADI: "dur", TAMAM: "tamam" };
+  var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı" };
+  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam" };
+
+  /* «Başladı» ve «Setup'ta» işi AÇAN kayıtlardır: yalnız başlangıç saati taşır,
+     bitiş/süre yazılmaz; duraklamadan sonra devam da sayılır. */
+  function acilisMi(d) { return d === "BASLADI" || d === "SETUP"; }
 
   /* Bir adımın son durumuna göre sırada mantıken hangi kaydın geleceği.
      Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
-  function planAdet() { var a = parseInt(is && is.adet, 10); return isNaN(a) ? null : a; }
-  function oneriDurum(son, no) {
+  function oneriDurum(son) {
     if (!son) return "BASLADI";
+    if (son === "BASLADI") return "TAMAM";
     if (son === "DURAKLADI") return "BASLADI";   // devam = yeniden başladı
-    if (son === "TAMAM") return "TAMAM";
-    // Başladı / Parça çıktı sonrası: plan adedine ulaşıldıysa kapat, yoksa sıradaki parça
-    var plan = planAdet(), top = adimOzeti(no).toplam;
-    if (plan != null && plan > 1 && top < plan) return "PARCA";
+    if (son === "SETUP") return "BASLADI";       // setup bitti → üretim başladı
     return "TAMAM";
-  }
-
-  /* ---------------------------------------------------- süre yardımcıları */
-  function sureYazi(d) {
-    if (d == null) return "—";
-    if (d < 60) return d + " dk";
-    var sa = Math.floor(d / 60), m = d % 60;
-    return sa + " sa" + (m ? " " + m + " dk" : "");
-  }
-  function saatYazi(ms) {
-    var t = new Date(ms), s = t.toTimeString().slice(0, 5);
-    if (t.toDateString() === new Date().toDateString()) return s;
-    return t.toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" }) + " " + s;
-  }
-  /* "SS:DD" → bugünün o saati (gelecekte kalıyorsa dün). */
-  function saatZamani(ss, simdi) {
-    if (!/^[0-9]{2}:[0-9]{2}$/.test(ss || "")) return null;
-    var t = new Date(simdi);
-    t.setHours(+ss.slice(0, 2), +ss.slice(3, 5), 0, 0);
-    if (t.getTime() > simdi + 5 * 60000) t.setDate(t.getDate() - 1);
-    return t.getTime();
-  }
-
-  /* Bir adımın bu telefondaki kayıtlarından çıkan özet:
-       ilkBas : ilk «Başladı» kaydının başlangıç saati (kapatırken buraya gelir)
-       ref    : parça süresinin ölçüldüğü an = son «Başladı» (devam dahil)
-                ya da son «Parça çıktı» — hangisi sonraysa
-       toplam : şimdiye kadar çıkan iyi parça (son girilen toplam)
-       birim  : 1. parçanın süresi (dk/parça); sonraki parçalar buna göre hesaplanır */
-  function adimOzeti(no) {
-    var l = adimKayitlari(no);
-    var o = { ilkBas: "", ref: null, toplam: 0, hurda: 0, birim: null, parca: 0 };
-    for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
-      var k = l[i];
-      if (k.durum === "BASLADI") {
-        if (!o.ilkBas && k.bas) o.ilkBas = k.bas;
-        o.ref = k.basZ || k.zaman || o.ref;
-      } else if (k.durum === "PARCA") {
-        o.ref = k.zaman || o.ref;
-        o.parca++;
-        if (o.birim == null && k.birim) o.birim = k.birim;
-      }
-      if (k.iyi !== undefined && k.iyi !== "") o.toplam = +k.iyi;
-      if (k.hur !== undefined && k.hur !== "") o.hurda = +k.hur;
-    }
-    return o;
-  }
-
-  /* Formdaki toplam adede göre bu kaydın parça süresi ve tahmini bitiş. */
-  function parcaHesabi() {
-    var o = adimOzeti(secili[0]), simdi = Date.now();
-    var toplam = parseInt($("#iyi").value, 10);
-    if (isNaN(toplam)) toplam = o.toplam;
-    var r = { o: o, toplam: toplam, fark: toplam - o.toplam, psure: null,
-              birim: o.birim, kalan: null, tahmin: null };
-    if (o.ref && r.fark > 0) r.psure = Math.max(1, Math.round((simdi - o.ref) / 60000 / r.fark));
-    if (r.birim == null && durum.durum === "PARCA") r.birim = r.psure;   // 1. parça birimi belirler
-    var plan = planAdet();
-    if (plan != null) r.kalan = Math.max(0, plan - toplam);
-    if (r.birim != null && r.kalan != null) r.tahmin = simdi + r.kalan * r.birim * 60000;
-    return r;
   }
 
   function adimKayitlari(no) {
@@ -784,7 +705,7 @@
       b.type = "button";
       b.className = "adim" + (d === "TAMAM" ? " kapali"
                             : d === "BASLADI" ? " basladi"
-                            : d === "PARCA" ? " parcada"
+                            : d === "SETUP" ? " setupta"
                             : d === "DURAKLADI" ? " durdu" : "");
       b.setAttribute("aria-pressed", secili && secili[0] === no ? "true" : "false");
       var nb = document.createElement("span");
@@ -798,9 +719,7 @@
       orta.appendChild(adEl); orta.appendChild(altEl);
       var cip = document.createElement("span");
       cip.className = "cip " + (DURUM_CIP[d] || "ac");
-      cip.textContent = !d ? "Açık"
-        : d === "PARCA" ? (k[no].iyi || 0) + (planAdet() != null ? "/" + planAdet() : "") + " parça"
-        : DURUM_AD[d];
+      cip.textContent = d ? DURUM_AD[d] : "Açık";
       b.appendChild(nb); b.appendChild(orta); b.appendChild(cip);
       b.addEventListener("click", function () { adimSec(x); });
       kutu.appendChild(b);
@@ -848,20 +767,14 @@
     var son = liste.length ? liste[0] : null;
     var d = son ? son.durum : "";
     $("#adim-durum-cip").className = "cip " + (DURUM_CIP[d] || "ac");
-    $("#adim-durum-cip").textContent = !d ? "Açık"
-      : d === "PARCA" ? (son.iyi || 0) + (planAdet() != null ? " / " + planAdet() : "") + " parça"
-      : DURUM_AD[d];
+    $("#adim-durum-cip").textContent = d ? DURUM_AD[d] : "Açık";
     var y;
     if (!son) {
       y = "Bu adımda henüz kayıt yok — genelde önce «Başladı» girilir.";
     } else {
       y = DURUM_AD[d] + " · " + son.saat + (son.kase ? " · kaşe " + son.kase : "");
-      if (d === "BASLADI") y += " — parça çıktıkça «Parça çıktı», bitince «Tamamlandı».";
-      else if (d === "PARCA") {
-        var oz = adimOzeti(no);
-        y += " — " + oz.toplam + ". parça çıktı" +
-             (oz.birim ? ", birim süre " + sureYazi(oz.birim) + "/parça" : "") + ".";
-      }
+      if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
+      else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
       else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
       if (liste.length > 1) y += " (bu adımda " + liste.length + " kayıt)";
@@ -879,31 +792,16 @@
     adetGorunurlugu();
   }
 
-  /* Form seçilen duruma göre daralır/genişler:
-       Başladı      → parça yok, bitiş saati yok, devir yok (iş daha yeni açıldı)
-       Duraklatıldı → o ana kadarki adet girilir, devir YOK (adım hâlâ bizde)
-       Tamamlandı   → adet + bitiş saati + sonraki adıma devir */
-  /* Otomatik doldurulan alan, kullanıcı elle değiştirmediği sürece durum
-     değişince yeniden doldurulabilir. */
-  function otoDoldur(id, v) {
-    var e = $(id);
-    if (!e.value || e.dataset.oto === "1") {
-      e.value = (v == null ? "" : v);
-      e.dataset.oto = e.value ? "1" : "";
-    }
-  }
-  ["#bas-saat", "#bit-saat", "#iyi", "#hurda", "#isleme"].forEach(function (id) {
-    $(id).addEventListener("input", function () { this.dataset.oto = ""; });
-  });
-
+  /* Form seçilen duruma göre daralır/genişler. Üretim adedi alanları HER
+     durumda açıktır (operatör istediği an adet girebilir):
+       Başladı      → bitiş saati ve süreler yok, devir yok
+       Duraklatıldı → bitiş saati + süreler, devir YOK (adım hâlâ bizde)
+       Tamamlandı   → bitiş saati + süreler + sonraki adıma devir */
   function adetGorunurlugu() {
     var d = durum.durum;
-    var basladi = d === "BASLADI", tamam = d === "TAMAM", parca = d === "PARCA";
-    $("#adet-baslik").hidden = basladi;
-    $("#adet-kart").hidden = basladi;
-    $("#bit-alan").hidden = basladi || parca;
-    $("#sure-alan").hidden = basladi || parca;   // parça kaydında süre otomatik
-    $("#sayac").hidden = !parca;
+    var basladi = acilisMi(d), tamam = d === "TAMAM";
+    $("#bit-alan").hidden = basladi;
+    $("#sure-alan").hidden = basladi;      // süreler işin sonunda yazılır
 
     var s = secili ? sonraki(secili[0]) : null;
     $("#devir-baslik").hidden = !tamam;
@@ -912,67 +810,160 @@
     $("#devir-var").checked = tamam && !!s;
 
     var simdi = new Date().toTimeString().slice(0, 5);
-    var oz = secili ? adimOzeti(secili[0]) : { ilkBas: "", toplam: 0, hurda: 0 };
+    var ilk = secili ? ilkBaslangic(secili[0]) : "";
     if (basladi) {
       otoDoldur("#bas-saat", simdi);
     } else {
       // «Başladı» kaydındaki başlangıç saati kapatırken kendiliğinden gelir
-      if (oz.ilkBas) otoDoldur("#bas-saat", oz.ilkBas);
-      if (!parca) otoDoldur("#bit-saat", simdi);
-      otoDoldur("#iyi", parca ? oz.toplam + 1 : (oz.toplam || ""));
-      if (oz.hurda) otoDoldur("#hurda", oz.hurda);
+      if (ilk) otoDoldur("#bas-saat", ilk);
+      otoDoldur("#bit-saat", simdi);
     }
-    sureBilgisi();
+    sureOzeti();
   }
 
-  /* Sayaç, süre ve tahmini bitiş satırı. Tamamlandı'da işleme süresini
-     birim süre × toplam adet olarak önerir. */
-  function sureBilgisi() {
-    var d = durum.durum, kutu = $("#sure-bilgi");
-    if (!secili || d === "BASLADI") { kutu.hidden = true; return; }
-    var r = parcaHesabi(), plan = planAdet(), y = [];
-    $("#say-deger").textContent = isNaN(r.toplam) ? 0 : r.toplam;
-    $("#say-alt").textContent = plan != null ? "/ " + plan + " parça" : "parça çıktı";
-    if (d === "PARCA") {
-      if (!r.o.ref) y.push("Bu adımda «Başladı» kaydı yok — parça süresi hesaplanamaz. Önce «Başladı» girin.");
-      else if (r.fark <= 0) y.push("Toplam, önceki kayıttan (" + r.o.toplam + ") fazla olmalı — +1'e dokunun.");
-      else {
-        y.push("Bu kayıt: <b>+" + r.fark + "</b> parça, parça başı <b>" + sureYazi(r.psure) + "</b>" +
-               (r.o.parca ? " (önceki parçadan beri)" : " (başlangıçtan beri)"));
-        if (r.birim != null) y.push("Birim süre: <b>" + sureYazi(r.birim) + "/parça</b>" +
-               (r.o.birim == null ? " — 1. parçadan alındı" : ""));
+  /* Adımın bu telefondaki İLK «Başladı» kaydının başlangıç saati. */
+  function ilkBaslangic(no) {
+    var k = ilkBasladiKaydi(no);
+    return k ? k.bas : "";
+  }
+  function ilkBasladiKaydi(no) {
+    var ilk = null;
+    adimKayitlari(no).forEach(function (k) {   // yeniden eskiye: sona kalan en eskisi
+      if (acilisMi(k.durum) && k.bas) ilk = k;
+    });
+    return ilk;
+  }
+
+  /* ------------------------------------------------ tarihli saatler ------
+     Saat kutuları SS:DD gösterir; TARİH sistem saatinden gelir. Böylece
+     gece yarısını geçen iş (ör. 22:00 → ertesi gün 02:10) doğru hesaplanır.
+       bitiş     : bugünün o saati (ileride kalıyorsa dün) — telefonun saati
+       başlangıç : ilk «Başladı» kaydının TARİHİ + kutudaki saat; bitişten
+                   sonraya düşerse bir gün geri alınır */
+  function saatZamani(ss, dayanak) {
+    if (!/^[0-9]{2}:[0-9]{2}$/.test(ss || "")) return null;
+    var t = new Date(dayanak);
+    t.setHours(+ss.slice(0, 2), +ss.slice(3, 5), 0, 0);
+    if (t.getTime() > dayanak + 5 * 60000) t.setDate(t.getDate() - 1);
+    return t.getTime();
+  }
+  function tarihSaat(ms) {
+    if (ms == null) return "";
+    var t = new Date(ms);
+    function iki(x) { return (x < 10 ? "0" : "") + x; }
+    return iki(t.getDate()) + "." + iki(t.getMonth() + 1) + "." + t.getFullYear() +
+           " " + iki(t.getHours()) + ":" + iki(t.getMinutes());
+  }
+  function sureYazi(d) {
+    if (d == null) return "—";
+    if (d < 60) return d + " dk";
+    var sa = Math.floor(d / 60), m = d % 60;
+    return sa + " sa" + (m ? " " + m + " dk" : "");
+  }
+
+  /* Formdaki saatlerden tarihli başlangıç/bitiş ve süreler. */
+  function sureHesabi() {
+    var simdi = Date.now(), d = durum.durum;
+    var r = { basZ: null, bitZ: null, brut: null, dur: 0, setup: 0, net: null };
+    var bitZ = acilisMi(d) ? null : saatZamani($("#bit-saat").value, simdi);
+    var ss = $("#bas-saat").value;
+    if (acilisMi(d)) {
+      r.basZ = saatZamani(ss, simdi);
+    } else {
+      var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
+      var dayanak = bitZ || simdi;
+      if (ilk && ilk.basZ && ilk.bas === ss) r.basZ = ilk.basZ;          // kayıttaki tarih
+      else if (ilk && ilk.basZ) {                                         // saat elle değişti
+        var t = new Date(ilk.basZ);
+        t.setHours(+ss.slice(0, 2), +ss.slice(3, 5), 0, 0);
+        r.basZ = /^[0-9]{2}:[0-9]{2}$/.test(ss) ? t.getTime() : null;
+        if (r.basZ != null && r.basZ > dayanak) r.basZ -= 86400000;
+      } else r.basZ = saatZamani(ss, dayanak);
+    }
+    r.bitZ = bitZ;
+    if (r.basZ != null && r.bitZ != null) {
+      r.brut = Math.round((r.bitZ - r.basZ) / 60000);
+      r.dur = secili ? duraklama(secili[0], r.basZ, r.bitZ) : 0;
+      r.setup = secili ? setupSuresi(secili[0], r.bitZ) : 0;
+      r.net = Math.max(0, r.brut - r.dur - r.setup);
+    }
+    return r;
+  }
+
+  /* «Duraklatıldı» → sonraki «Başladı» arası beklemeler (dk). Kapanmamış
+     (devam kaydı girilmemiş) duraklama sayılmaz. */
+  function duraklama(no, bas, bit) {
+    var l = adimKayitlari(no), top = 0, durdu = null;
+    for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
+      var k = l[i];
+      if (k.durum === "DURAKLADI" && k.bitZ) durdu = k.bitZ;
+      else if (acilisMi(k.durum) && k.basZ && durdu != null) {
+        var a = Math.max(durdu, bas), b = Math.min(k.basZ, bit);
+        if (b > a) top += b - a;
+        durdu = null;
       }
-    } else if (r.birim != null) {
-      y.push("Birim süre: <b>" + sureYazi(r.birim) + "/parça</b> (1. parçadan)");
     }
-    if (r.kalan != null && r.birim != null && d !== "TAMAM") {
-      y.push(r.kalan > 0
-        ? "Kalan <b>" + r.kalan + "</b> parça ≈ <b>" + sureYazi(r.kalan * r.birim) +
-          "</b> · tahmini bitiş <b>" + saatYazi(r.tahmin) + "</b>"
-        : "Plan adedine ulaşıldı — «Tamamlandı» girebilirsiniz.");
-    }
-    if (d === "TAMAM" && r.birim != null && r.toplam > 0) otoDoldur("#isleme", r.birim * r.toplam);
-    kutu.innerHTML = y.join("<br>");
-    kutu.hidden = y.length === 0;
+    return Math.round(top / 60000);
   }
 
-  $("#say-arti").addEventListener("click", function () {
-    var v = parseInt($("#iyi").value, 10);
-    $("#iyi").value = (isNaN(v) ? 0 : v) + 1; $("#iyi").dataset.oto = "";
-    sureBilgisi();
+  /* «Setup'ta» kaydından bir sonraki kayda kadar geçen süreler (dk).
+     Kapatılırken hâlâ setup'taysa bitiş saatine kadar sayılır. */
+  function setupSuresi(no, bit) {
+    var l = adimKayitlari(no), top = 0, bas = null;
+    function kapat(t) { if (bas != null && t != null && t > bas) top += t - bas; bas = null; }
+    for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
+      var k = l[i], t = acilisMi(k.durum) ? k.basZ : k.bitZ;
+      kapat(t);
+      if (k.durum === "SETUP" && k.basZ) bas = k.basZ;
+    }
+    kapat(bit);
+    return Math.round(top / 60000);
+  }
+
+  /* Saatlerin altında tarihli özet; toplam işleme kutusunu doldurur. */
+  function sureOzeti() {
+    var kutu = $("#sure-ozet");
+    if (!secili || acilisMi(durum.durum)) { kutu.hidden = true; return; }
+    var r = sureHesabi();
+    if (r.brut == null) { kutu.hidden = true; return; }
+    kutu.hidden = false;
+    if (r.brut < 0) {
+      kutu.className = "sure-ozet ters";
+      kutu.textContent = "Bitiş, başlangıçtan önce görünüyor — saatleri kontrol edin.";
+      return;
+    }
+    kutu.className = "sure-ozet";
+    kutu.textContent = tarihSaat(r.basZ) + " → " + tarihSaat(r.bitZ) +
+      " · toplam " + sureYazi(r.brut) +
+      (r.setup ? " − setup " + sureYazi(r.setup) : "") +
+      (r.dur ? " − duraklama " + sureYazi(r.dur) : "") +
+      ((r.setup || r.dur) ? " = işleme " + sureYazi(r.net) : "");
+    if (r.setup) otoDoldur("#kurulum", r.setup);
+    otoDoldur("#isleme", r.net);
+  }
+
+  /* Otomatik doldurulan saat, kullanıcı elle değiştirmediyse durum
+     değişince yeniden doldurulabilir. */
+  function otoDoldur(id, v) {
+    var e = $(id);
+    if (!e.value || e.dataset.oto === "1") {
+      e.value = (v == null ? "" : v);
+      e.dataset.oto = e.value ? "1" : "";
+    }
+  }
+  ["#bas-saat", "#bit-saat", "#isleme", "#kurulum"].forEach(function (id) {
+    $(id).addEventListener("input", function () { this.dataset.oto = ""; });
   });
-  $("#say-eksi").addEventListener("click", function () {
-    var v = parseInt($("#iyi").value, 10);
-    $("#iyi").value = Math.max(0, (isNaN(v) ? 0 : v) - 1); $("#iyi").dataset.oto = "";
-    sureBilgisi();
+  ["#bas-saat", "#bit-saat"].forEach(function (id) {
+    $(id).addEventListener("input", sureOzeti);
+    $(id).addEventListener("change", sureOzeti);
   });
-  $("#iyi").addEventListener("input", sureBilgisi);
 
   function adimSec(x) {
     secili = x;
     formuBosalt();
     $("#secili-baslik").textContent = "Adım " + x[0] + " — " + x[1];
-    durumUygula(oneriDurum(adimDurumGoster(x[0]), x[0]));
+    durumUygula(oneriDurum(adimDurumGoster(x[0])));
     $("#teyit").hidden = false;
     $("#cikti").hidden = true;
     $("#form-hata").hidden = true;
@@ -1031,7 +1022,7 @@
     return "";
   }
 
-  var sonHesap = null;
+  var sonSure = null;
   function satirOlustur(kid) {
     var p = [];
     function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
@@ -1044,24 +1035,18 @@
     if (oncekiler.length) ek("ONCE", oncekiler[0].durum);   // planlama sırayı görsün
     ek("KASE", $("#kase").value.trim());
     ek("TZG", $("#tezgah").value.trim());
-    ek("BAS", $("#bas-saat").value);
-    var ph = sonHesap = parcaHesabi();
-    if (durum.durum === "PARCA") {             // tezgahtan parça çıktı
-      ek("IYI", $("#iyi").value);
-      if (ph.fark > 0) ek("PARTI", ph.fark);   // bu kayıtta çıkan parça
-      ek("PSURE", ph.psure); ek("BIRIM", ph.birim); ek("KALAN", ph.kalan);
-      if (ph.tahmin) ek("TAHMIN", saatYazi(ph.tahmin));
-      ek("HUR", $("#hurda").value);
-      if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
-      ek("YEN", $("#yeniden").value);
-    } else if (durum.durum !== "BASLADI") {    // iş yeni açıldıysa bitiş/adet olmaz
-      ek("BIT", $("#bit-saat").value);
+    var sh = sonSure = sureHesabi();
+    ek("BAS", sh.basZ != null ? tarihSaat(sh.basZ) : $("#bas-saat").value);
+    if (!acilisMi(durum.durum)) {              // iş yeni açıldıysa bitiş/süre olmaz
+      ek("BIT", sh.bitZ != null ? tarihSaat(sh.bitZ) : $("#bit-saat").value);
       ek("KUR", $("#kurulum").value); ek("ISL", $("#isleme").value);
-      ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
-      if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
-      ek("YEN", $("#yeniden").value);
-      ek("BIRIM", ph.birim);
+      if (sh.brut != null) ek("BRUT", sh.brut);   // başlangıç → bitiş (dk)
+      if (sh.dur) ek("DUR", sh.dur);              // duraklama (dk)
     }
+    // Üretim adetleri her durumda — girildiyse yazılır
+    ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
+    if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
+    ek("YEN", $("#yeniden").value);
     if ($("#fai-var").checked) { ek("FAI", durum.fai); ek("FKASE", $("#fai-kase").value.trim()); }
     if ($("#apa-var").checked) { ek("APA", durum.apa); ek("APANO", $("#apa-no").value.trim()); }
     if ($("#sap-var").checked) {
@@ -1110,12 +1095,9 @@
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
       hata("Sapma isteği için açıklama zorunlu."); return;
     }
-    if (durum.durum === "PARCA") {
-      var pk = parcaHesabi(), hur = parseInt($("#hurda").value, 10) || 0;
-      if (isNaN(pk.toplam) || (pk.fark <= 0 && hur <= pk.o.hurda)) {
-        hata("Parça kaydı için toplam adet öncekinden (" + pk.o.toplam + ") fazla olmalı — +1'e dokunun.");
-        return;
-      }
+    var kontrol = sureHesabi();
+    if (kontrol.brut != null && kontrol.brut < 0) {
+      hata("Bitiş saati başlangıçtan önce görünüyor — saatleri kontrol edin."); return;
     }
     var kid = yeniKid();
     var metin = satirOlustur(kid);
@@ -1132,13 +1114,10 @@
 
     kayitYaz({
       no: secili[0], ad: secili[1], durum: durum.durum, kase: kase, kid: kid,
-      saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-      zaman: Date.now(),
       bas: $("#bas-saat").value,
-      basZ: durum.durum === "BASLADI" ? saatZamani($("#bas-saat").value, Date.now()) : null,
-      iyi: $("#adet-kart").hidden ? "" : $("#iyi").value,
-      hur: $("#adet-kart").hidden ? "" : $("#hurda").value,
-      birim: sonHesap ? sonHesap.birim : null
+      basZ: sonSure ? sonSure.basZ : null,
+      bitZ: sonSure ? sonSure.bitZ : null,
+      saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
     });
     ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
     $("#btn-ana").textContent = "Metni Kopyala";
@@ -1197,8 +1176,10 @@
     return {
       A1: is.ie, A2: secili[0] + " · " + secili[1], A3: durum.durum,
       // Adet girilmediyse BOŞ gider: "0 parça" ile "adet girilmedi" ayrılsın.
-      A4: $("#kase").value.trim(), A5: $("#adet-kart").hidden ? "" : $("#iyi").value,
-      A6: $("#sap-var").checked ? "VAR" : "-", A7: metin
+      A4: $("#kase").value.trim(), A5: $("#iyi").value,
+      A6: $("#sap-var").checked ? "VAR" : "-", A7: metin,
+      A8: acilisMi(durum.durum) ? "" : $("#isleme").value,  // Toplam İşleme (dk)
+      A9: acilisMi(durum.durum) ? "" : $("#kurulum").value  // Setup (dk)
     };
   }
 
@@ -1311,7 +1292,7 @@
     var fm = u.match(/forms\/d\/e\/([A-Za-z0-9_-]+)/);
     var alan = {}, bulunan = 0;
     // Alanları DEĞERE göre eşleştir (A1..A7): sıra yanlış olsa da doğru bağlanır.
-    u.replace(/entry\.(\d+)=(A[1-7])\b/g, function (_t, no, im) {
+    u.replace(/entry\.(\d+)=(A[1-9])\b/g, function (_t, no, im) {
       alan[im] = no; bulunan++; return "";
     });
     var s = $("#ayar-sonuc");
@@ -1396,6 +1377,20 @@
     kuyruguBosalt().then(bekleyeniGoster);
   });
   window.addEventListener("online", function () { kuyruguBosalt(); });
+
+  /* Veri biçimi değişti (tarihli saatler): bu sürüme ilk geçişte telefondaki
+     ESKİ kayıtlar, bekleyen kuyruk ve gönderim izleri bir kez silinir.
+     Form bağlantısı (muif-form) korunur. */
+  var VERI_SURUMU = "11";
+  try {
+    if (localStorage.getItem("muif-veri-surumu") !== VERI_SURUMU) {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf("muif-teyit:") === 0 || k === "muif-kuyruk" || k === "muif-gonderilen")
+          localStorage.removeItem(k);
+      });
+      localStorage.setItem("muif-veri-surumu", VERI_SURUMU);
+    }
+  } catch (e) { /* depolama kapalı */ }
 
   formBagliMi();
   bekleyeniGoster();
