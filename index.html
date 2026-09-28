@@ -150,6 +150,16 @@
   }
   .adim-durum span:last-child{font-size:12.5px; color:var(--ink2); flex:1 1 180px; line-height:1.35}
   label.alan.hatali input{border-color:var(--hata); background:var(--hata-soft)}
+  .kural-uyari{
+    margin:0 0 12px; padding:11px 12px; border-radius:var(--r);
+    background:var(--hata-soft); color:var(--hata); border:1px solid var(--hata);
+    display:flex; flex-direction:column; gap:8px; font-size:13.5px; line-height:1.45;
+  }
+  .kural-uyari p{margin:0; font-weight:500}
+  .kural-uyari button{
+    align-self:flex-start; font:inherit; font-weight:600; padding:7px 12px; border-radius:8px;
+    background:var(--yuzey); color:var(--hata); border:1px solid var(--hata); cursor:pointer;
+  }
   .sure-ozet{
     margin:10px 0 0; padding:9px 11px; border-radius:var(--r); background:var(--vurgu-soft);
     color:var(--ink); font-size:13px; line-height:1.45; font-variant-numeric:tabular-nums;
@@ -294,6 +304,10 @@
 
     <form id="teyit" hidden>
       <h2 id="secili-baslik">Operasyon Teyidi</h2>
+      <div class="kural-uyari" id="kural-uyari" hidden>
+        <p id="kural-yazi"></p>
+        <button type="button" id="kural-yenile">Durumu yenile</button>
+      </div>
 
       <div class="kart">
         <div class="adim-durum" id="adim-durum">
@@ -577,6 +591,11 @@
     alan: {"A1": "885226271", "A2": "966772182", "A3": "1515106543", "A4": "1351516338", "A5": "1036551228", "A6": "83527246", "A7": "28059196", "A8": "1979238332", "A9": "671181483"}
   };
 
+  /* Ortak durum servisi (Apps Script web uygulaması, durum_servisi.gs).
+     Verilen İş Emri için yalnızca adım no → son durum döner. Boşsa sıra
+     kuralı bu telefonun kendi kayıtlarıyla uygulanır. */
+  var DURUM_SERVISI = "";
+
   var ON_EK = "MUIF1";          // QR yükünün başındaki imza
   var is = null, secili = null, ornekMi = true;
   var durum = { durum: "TAMAM", fai: "BEKLIYOR", apa: "MEVCUT" };
@@ -634,7 +653,65 @@
     kayitlariOku().forEach(function (k) {
       if (!s[k.no]) s[k.no] = k;
     });
+    // Ortak servisten gelen durum, bu telefondakinden YENİYSE onu kullan
+    Object.keys(sunucu.adimlar).forEach(function (no) {
+      var u = sunucu.adimlar[no], y = s[no];
+      if (!y || (u.zaman || 0) > (y.zaman || 0)) {
+        s[no] = { no: no, durum: u.durum, zaman: u.zaman, uzak: true,
+                  saat: new Date(u.zaman).toTimeString().slice(0, 5) };
+      }
+    });
     return s;
+  }
+
+  /* ------------------------------------------------ ortak durum servisi */
+  var sunucu = { adimlar: {}, hal: "yok" };      // yok | yukleniyor | tamam | hata
+  function sunucuYukle() {
+    if (!DURUM_SERVISI || !is) { sunucu.hal = "yok"; return Promise.resolve(); }
+    sunucu.hal = "yukleniyor";
+    var ie = is.ie;
+    var istek = fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie))
+      .then(function (r) { return r.json(); });
+    var zamanAsimi = new Promise(function (_, red) { setTimeout(red, 8000); });
+    return Promise.race([istek, zamanAsimi]).then(function (v) {
+      if (!is || is.ie !== ie) return;
+      sunucu.adimlar = (v && v.adimlar) || {};
+      sunucu.hal = "tamam";
+      yenidenCiz();
+    }).catch(function () { sunucu.hal = "hata"; yenidenCiz(); });
+  }
+  function yenidenCiz() {
+    if (!is) return;
+    listeyiCiz(); ilerlemeyiCiz();
+    if (secili && $("#cikti").hidden) kuraliGoster(secili[0]);
+  }
+
+  /* Sıra kuralı: bir önceki adım «Tamamlandı» olmadan bu adıma kayıt
+     girilmez. Bu adıma daha önce kayıt girildiyse (iş zaten başlamış)
+     devam/kapama serbesttir. İlk adım her zaman serbest. */
+  function siraEngeli(no) {
+    var i = is.a.findIndex(function (x) { return x[0] === no; });
+    if (i <= 0) return null;
+    var k = adimDurumlari();
+    if (k[no]) return null;
+    var once = is.a[i - 1], od = k[once[0]];
+    if (od && od.durum === "TAMAM") return null;
+    var neden = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)"
+              : sunucu.hal === "hata" ? " (Ortak durum okunamadı — bağlantıyı kontrol edip «Durumu yenile»ye dokunun.)"
+              : sunucu.hal === "yukleniyor" ? " (Ortak durum okunuyor…)" : "";
+    return { once: once,
+             yazi: "Önceki adım kapanmadı: " + once[0] + " · " + once[1] + " — durumu «" +
+                   (od ? DURUM_AD[od.durum] : "Açık") + "». Önce o adım «Tamamlandı» " +
+                   "girilmeli; bu adıma kayıt açılamaz." + neden };
+  }
+
+  function kuraliGoster(no) {
+    var e = siraEngeli(no), kutu = $("#kural-uyari");
+    kutu.hidden = !e;
+    $("#kural-yenile").hidden = !DURUM_SERVISI;
+    if (e) $("#kural-yazi").textContent = e.yazi;
+    $("#btn-ana").disabled = !!e;
+    $("#btn-ana").textContent = e ? "Önceki adım kapanmadı" : "Kaydet ve Gönder";
   }
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
@@ -764,7 +841,7 @@
      kaydı önerir. Adım "kapandı" diye kilitlenmez: düzeltme kaydı açılabilir. */
   function adimDurumGoster(no) {
     var liste = adimKayitlari(no);
-    var son = liste.length ? liste[0] : null;
+    var son = adimDurumlari()[no] || null;
     var d = son ? son.durum : "";
     $("#adim-durum-cip").className = "cip " + (DURUM_CIP[d] || "ac");
     $("#adim-durum-cip").textContent = d ? DURUM_AD[d] : "Açık";
@@ -772,7 +849,8 @@
     if (!son) {
       y = "Bu adımda henüz kayıt yok — genelde önce «Başladı» girilir.";
     } else {
-      y = DURUM_AD[d] + " · " + son.saat + (son.kase ? " · kaşe " + son.kase : "");
+      y = DURUM_AD[d] + " · " + son.saat + (son.kase ? " · kaşe " + son.kase : "") +
+          (son.uzak ? " (başka telefondan)" : "");
       if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
@@ -831,6 +909,15 @@
     adimKayitlari(no).forEach(function (k) {   // yeniden eskiye: sona kalan en eskisi
       if (acilisMi(k.durum) && k.bas) ilk = k;
     });
+    // Bu telefonda yoksa: işi başka telefon açtıysa servisteki başlangıç
+    var u = sunucu.adimlar[no];
+    if (!ilk && u && u.bas) {
+      var m = /^([0-9]{2})\.([0-9]{2})\.([0-9]{4}) ([0-9]{2}):([0-9]{2})/.exec(u.bas);
+      if (m) {
+        var z = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]).getTime();
+        ilk = { bas: m[4] + ":" + m[5], basZ: z };
+      }
+    }
     return ilk;
   }
 
@@ -840,12 +927,17 @@
        bitiş     : bugünün o saati (ileride kalıyorsa dün) — telefonun saati
        başlangıç : ilk «Başladı» kaydının TARİHİ + kutudaki saat; bitişten
                    sonraya düşerse bir gün geri alınır */
+  /* SS:DD → dayanak ana EN YAKIN gün (dün / bugün / yarın) o saat.
+     Örnek: 00:05'te girilen 23:55 → dün 23:55; 12:51'de girilen 17:00 →
+     bugün 17:00 (eskiden dün sayılıyordu). Saniye taşıyan değer de kabul. */
   function saatZamani(ss, dayanak) {
-    if (!/^[0-9]{2}:[0-9]{2}$/.test(ss || "")) return null;
+    if (!/^[0-9]{2}:[0-9]{2}/.test(ss || "") || dayanak == null) return null;
     var t = new Date(dayanak);
     t.setHours(+ss.slice(0, 2), +ss.slice(3, 5), 0, 0);
-    if (t.getTime() > dayanak + 5 * 60000) t.setDate(t.getDate() - 1);
-    return t.getTime();
+    var g = 86400000, adaylar = [t.getTime() - g, t.getTime(), t.getTime() + g];
+    return adaylar.reduce(function (a, b) {
+      return Math.abs(b - dayanak) < Math.abs(a - dayanak) ? b : a;
+    });
   }
   function tarihSaat(ms) {
     if (ms == null) return "";
@@ -873,12 +965,8 @@
       var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
       var dayanak = bitZ || simdi;
       if (ilk && ilk.basZ && ilk.bas === ss) r.basZ = ilk.basZ;          // kayıttaki tarih
-      else if (ilk && ilk.basZ) {                                         // saat elle değişti
-        var t = new Date(ilk.basZ);
-        t.setHours(+ss.slice(0, 2), +ss.slice(3, 5), 0, 0);
-        r.basZ = /^[0-9]{2}:[0-9]{2}$/.test(ss) ? t.getTime() : null;
-        if (r.basZ != null && r.basZ > dayanak) r.basZ -= 86400000;
-      } else r.basZ = saatZamani(ss, dayanak);
+      else if (ilk && ilk.basZ) r.basZ = saatZamani(ss, ilk.basZ);   // saat elle değişti
+      else r.basZ = saatZamani(ss, dayanak);
     }
     r.bitZ = bitZ;
     if (r.basZ != null && r.bitZ != null) {
@@ -976,6 +1064,7 @@
     delete $("#btn-ana").dataset.mod;
     $("#btn-geri").hidden = false;
     listeyiCiz();
+    kuraliGoster(x[0]);
     $("#teyit").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -991,6 +1080,13 @@
       durum[alan] = b.dataset.deger;
     });
   }
+  $("#kural-yenile").addEventListener("click", function () {
+    var b = this; b.disabled = true; b.textContent = "Okunuyor…";
+    sunucuYukle().then(function () {
+      b.disabled = false; b.textContent = "Durumu yenile";
+      if (secili) kuraliGoster(secili[0]);
+    });
+  });
   secimBagla("#durum-secim", "durum");
   $("#durum-secim").addEventListener("click", adetGorunurlugu);
   secimBagla("#fai-secim", "fai");
@@ -1095,9 +1191,20 @@
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
       hata("Sapma isteği için açıklama zorunlu."); return;
     }
+    var engel = siraEngeli(secili[0]);
+    if (engel) { hata(engel.yazi); return; }
     var kontrol = sureHesabi();
+    if (kontrol.basZ != null && kontrol.basZ > Date.now() + 5 * 60000) {
+      hata("Başlangıç saati şu andan ileride (" + tarihSaat(kontrol.basZ) +
+           "). Başlangıç, işin gerçekten başladığı an olmalı."); return;
+    }
+    if (kontrol.bitZ != null && kontrol.bitZ > Date.now() + 5 * 60000) {
+      hata("Bitiş saati şu andan ileride (" + tarihSaat(kontrol.bitZ) +
+           "). Bitiş, kaydı girdiğiniz an ya da öncesi olmalı."); return;
+    }
     if (kontrol.brut != null && kontrol.brut < 0) {
-      hata("Bitiş saati başlangıçtan önce görünüyor — saatleri kontrol edin."); return;
+      hata("Bitiş (" + tarihSaat(kontrol.bitZ) + ") başlangıçtan (" +
+           tarihSaat(kontrol.basZ) + ") önce — saatleri kontrol edin."); return;
     }
     var kid = yeniKid();
     var metin = satirOlustur(kid);
@@ -1114,6 +1221,7 @@
 
     kayitYaz({
       no: secili[0], ad: secili[1], durum: durum.durum, kase: kase, kid: kid,
+      zaman: Date.now(),
       bas: $("#bas-saat").value,
       basZ: sonSure ? sonSure.basZ : null,
       bitZ: sonSure ? sonSure.bitZ : null,
@@ -1144,7 +1252,11 @@
     });
   }
 
-  function hata(m) { var e = $("#form-hata"); e.textContent = m; e.hidden = false; }
+  function hata(m) {
+    var e = $("#form-hata");
+    e.textContent = m; e.hidden = false;
+    e.scrollIntoView({ behavior: "smooth", block: "center" });   // ekranın dışında kalmasın
+  }
 
   /* ======================================================== Google Form ==*/
   function ayarOku() {
@@ -1214,7 +1326,11 @@
     var fd = new FormData();
     Object.keys(paket.veri).forEach(function (k) { fd.append(k, paket.veri[k]); });
     return fetch(paket.url, { method: "POST", mode: "no-cors", body: fd })
-      .then(function (r) { gonderildiIsaretle(paket.kid || kidOku(paket.metin)); return r; });
+      .then(function (r) {
+        gonderildiIsaretle(paket.kid || kidOku(paket.metin));
+        setTimeout(sunucuYukle, 3000);          // tabloya işlendikten sonra ortak durumu tazele
+        return r;
+      });
   }
 
   /* Bu telefondan gönderildiği kesinleşen kayıt numaraları (son 300). */
@@ -1349,6 +1465,8 @@
     $("#btn-ana").disabled = true; $("#btn-ana").textContent = "Adım seçin";
     delete $("#btn-ana").dataset.mod; $("#btn-geri").hidden = true;
     kunyeyiCiz(); listeyiCiz(); ilerlemeyiCiz();
+    sunucu = { adimlar: {}, hal: "yok" };
+    sunucuYukle();
   }
 
   $("#kaynak-yukle").addEventListener("click", function () {
@@ -1376,7 +1494,7 @@
     this.textContent = "Gönderiliyor…";
     kuyruguBosalt().then(bekleyeniGoster);
   });
-  window.addEventListener("online", function () { kuyruguBosalt(); });
+  window.addEventListener("online", function () { kuyruguBosalt(); sunucuYukle(); });
 
   /* Veri biçimi değişti (tarihli saatler): bu sürüme ilk geçişte telefondaki
      ESKİ kayıtlar, bekleyen kuyruk ve gönderim izleri bir kez silinir.
