@@ -653,38 +653,107 @@
     kayitlariOku().forEach(function (k) {
       if (!s[k.no]) s[k.no] = k;
     });
-    // Ortak servisten gelen durum, bu telefondakinden YENİYSE onu kullan
+    if (!sunucu.zaman) return s;          // servis henüz okunmadı: bu telefonun bildiği
+
+    /* Servis okunduysa ESAS OLAN SERVİSTİR. Bu telefonun kaydı yalnız
+       (a) son servis okumasından en çok 2 dk önce ya da sonra girildiyse (henüz
+       tabloya yansımamış olabilir) ya da (b) gönderilmeyi bekliyorsa öne
+       geçer. İki zaman da BU telefonun saatiyle ölçülür; telefonlar arası
+       saat farkı sonucu değiştirmez. (Önceden iki telefonun saati
+       karşılaştırılıyordu: telefon kendi eski kaydını "daha yeni" sanıp
+       diğer telefonun girişini gizleyebiliyordu.) */
+    var bekleyen = {};
+    kuyrukOku().forEach(function (q) { var id = paketKid(q); if (id) bekleyen[id] = 1; });
+    var sonuc = {};
     Object.keys(sunucu.adimlar).forEach(function (no) {
       var u = sunucu.adimlar[no], y = s[no];
-      if (!y || (u.zaman || 0) > (y.zaman || 0)) {
-        s[no] = { no: no, durum: u.durum, zaman: u.zaman, uzak: true,
-                  saat: new Date(u.zaman).toTimeString().slice(0, 5) };
-      }
+      var ayni = y && (u.son_kid ? u.son_kid === y.kid
+                     : (y.durum === u.durum && Math.abs((y.zaman || 0) - (u.zaman || 0)) < 10 * 60000));
+      // Servisteki son kayıt bu telefonunkiyse telefonunkini göster (kaşe bilgisi var)
+      sonuc[no] = ayni ? y : { no: no, durum: u.durum, zaman: u.zaman, uzak: true,
+                               saat: new Date(u.zaman).toTimeString().slice(0, 5) };
     });
-    return s;
+    // Bu telefonun son kaydı tabloya HENÜZ YANSIMADIYSA (yolda / bekleyen) o gösterilir.
+    // Servis kayıt numaralarını (kidler) veriyorsa kesin karar verilir; eski servis
+    // sürümünde 2 dakikalık pay kullanılır (Google kaydı gecikmeli düşebilir).
+    var pay = 2 * 60000;
+    Object.keys(s).forEach(function (no) {
+      var y = s[no], u = sunucu.adimlar[no];
+      var yolda;
+      if (y.kid && bekleyen[y.kid]) yolda = true;
+      else if (u && u.kidler) yolda = !!y.kid && u.kidler.indexOf(y.kid) < 0 &&
+                                      (y.zaman || 0) > sunucu.zaman - 10 * 60000;
+      else if (u) yolda = (y.zaman || 0) > sunucu.zaman - pay;
+      else yolda = sunucu.kidliMi ? (y.zaman || 0) > sunucu.zaman - 10 * 60000
+                                  : (y.zaman || 0) > sunucu.zaman - pay;
+      if (yolda) sonuc[no] = y;
+    });
+    return sonuc;
+  }
+
+  /* İlerleme çubuğunun altında: bilgi nereden geliyor? */
+  function ortakDurumYazisi() {
+    var e = $("#k-cihaz");
+    if (!e) return;
+    if (!DURUM_SERVISI) { e.textContent = "bu telefonda"; return; }
+    if (sunucu.hal === "yukleniyor" && !sunucu.zaman) { e.textContent = "ortak durum okunuyor…"; return; }
+    if (sunucu.hal === "hata") {
+      e.textContent = sunucu.zaman
+        ? "ortak durum " + new Date(sunucu.zaman).toTimeString().slice(0, 5) + " (yenilenemedi)"
+        : "ortak durum okunamadı — bu telefondaki";
+      return;
+    }
+    e.textContent = sunucu.zaman
+      ? "ortak durum " + new Date(sunucu.zaman).toTimeString().slice(0, 5)
+      : "bu telefonda";
   }
 
   /* ------------------------------------------------ ortak durum servisi */
   var sunucu = { adimlar: {}, hal: "yok" };      // yok | yukleniyor | tamam | hata
+  /* Ortak durum; önbelleğe alınmaz, aynı anda tek istek. Okuma anları:
+     açılış, adıma dokunma, Kaydet'ten hemen önce, kendi gönderiminden sonra,
+     sayfa açıkken 30 sn'de bir ve telefon ekranı yeniden açıldığında.
+     (Önceden yalnız açılışta okunuyordu: 2. telefon, 1. telefonun sonradan
+     girdiği «Başladı»yı görmüyor, iki telefon birbirinden habersiz kalıyordu.) */
+  var sunucuIstegi = null;
   function sunucuYukle() {
     if (!DURUM_SERVISI || !is) { sunucu.hal = "yok"; return Promise.resolve(); }
+    if (sunucuIstegi) return sunucuIstegi;
     sunucu.hal = "yukleniyor";
+    ortakDurumYazisi();
     var ie = is.ie;
-    var istek = fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie))
+    var istek = fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie) + "&_=" + Date.now(),
+                      { cache: "no-store" })
       .then(function (r) { return r.json(); });
     var zamanAsimi = new Promise(function (_, red) { setTimeout(red, 8000); });
-    return Promise.race([istek, zamanAsimi]).then(function (v) {
+    sunucuIstegi = Promise.race([istek, zamanAsimi]).then(function (v) {
       if (!is || is.ie !== ie) return;
       sunucu.adimlar = (v && v.adimlar) || {};
+      sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
+        return !!sunucu.adimlar[k].kidler; });
       sunucu.hal = "tamam";
-      yenidenCiz();
-    }).catch(function () { sunucu.hal = "hata"; yenidenCiz(); });
+      sunucu.zaman = Date.now();
+    }).catch(function () { sunucu.hal = "hata"; })
+      .then(function () { sunucuIstegi = null; yenidenCiz(); });
+    return sunucuIstegi;
   }
   function yenidenCiz() {
     if (!is) return;
-    listeyiCiz(); ilerlemeyiCiz();
-    if (secili && $("#cikti").hidden) kuraliGoster(secili[0]);
+    listeyiCiz(); ilerlemeyiCiz(); ortakDurumYazisi();
+    if (secili && $("#cikti").hidden) {
+      var d = adimDurumGoster(secili[0]);
+      if (!durumElle) durumUygula(oneriDurum(d));   // kullanıcı seçtiyse dokunma
+      kuraliGoster(secili[0]);
+    }
   }
+  var durumElle = false;         // operatör durum düğmesine kendisi dokundu mu
+
+  setInterval(function () {
+    if (document.visibilityState === "visible") sunucuYukle();
+  }, 30000);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible") sunucuYukle();
+  });
 
   /* Sıra kuralı: bir önceki adım «Tamamlandı» olmadan bu adıma kayıt
      girilmez. Bu adıma daha önce kayıt girildiyse (iş zaten başlamış)
@@ -850,7 +919,7 @@
       y = "Bu adımda henüz kayıt yok — genelde önce «Başladı» girilir.";
     } else {
       y = DURUM_AD[d] + " · " + son.saat + (son.kase ? " · kaşe " + son.kase : "") +
-          (son.uzak ? " (başka telefondan)" : "");
+          (son.uzak ? " (ortak kayıt)" : "");
       if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
@@ -1064,7 +1133,9 @@
     delete $("#btn-ana").dataset.mod;
     $("#btn-geri").hidden = false;
     listeyiCiz();
+    durumElle = false;
     kuraliGoster(x[0]);
+    sunucuYukle();                     // başka telefonların son girişleri
     $("#teyit").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -1089,6 +1160,9 @@
   });
   secimBagla("#durum-secim", "durum");
   $("#durum-secim").addEventListener("click", adetGorunurlugu);
+  $("#durum-secim").addEventListener("click", function (e) {
+    if (e.target.closest("button[data-deger]")) durumElle = true;
+  });
   secimBagla("#fai-secim", "fai");
   secimBagla("#apa-secim", "apa");
 
@@ -1447,7 +1521,17 @@
   }
 
   $("#btn-ana").addEventListener("click", function () {
-    if (this.dataset.mod === "kopya") kopyala(); else kaydiOlustur();
+    if (this.dataset.mod === "kopya") { kopyala(); return; }
+    if (!DURUM_SERVISI) { kaydiOlustur(); return; }
+    // Göndermeden hemen önce ortak durumu tazele: sıra kuralı son bilgiyle denetlensin.
+    var b = this;
+    b.disabled = true; b.textContent = "Kontrol ediliyor…";
+    sunucuYukle().then(function () {
+      if (!secili) return;
+      kuraliGoster(secili[0]);           // düğmeyi taze duruma göre aç / kilitle
+      if (!b.disabled) kaydiOlustur();
+      else hata(siraEngeli(secili[0]).yazi);
+    });
   });
   $("#btn-geri").addEventListener("click", function () {
     $("#teyit").hidden = true; $("#cikti").hidden = true;
