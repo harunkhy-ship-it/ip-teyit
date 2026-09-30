@@ -1352,6 +1352,15 @@
   function yeniKid() {
     return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5);
   }
+  /* Bu telefon bu işin rotasını gönderdi mi? */
+  var satirRotali = false;
+  function rotaGittiMi(ie) {
+    try { return localStorage.getItem("muif-rota:" + ie) === "1"; } catch (e) { return false; }
+  }
+  function rotaGitti(ie) {
+    try { localStorage.setItem("muif-rota:" + ie, "1"); } catch (e) { /* depolama kapalı */ }
+  }
+
   function kidOku(metin) {
     var p = String(metin || "").split("|");
     for (var i = 0; i < p.length; i++) if (p[i].indexOf("KID:") === 0) return p[i].slice(4);
@@ -1366,6 +1375,14 @@
     ek("KID", kid);
     ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
     ek("ADET", is.adet); ek("TOP", is.a.length);   // yönetici panosu: adet ve "12 / 27" ilerleme
+    // Rotanın tamamı: bu telefondan bu iş için İLK kayıtta bir kez gider; pano
+    // kayıt girilmemiş adımları da ("Bekliyor") bununla gösterir.
+    if (!rotaGittiMi(is.ie)) {
+      ek("ROTA", is.a.map(function (x) {
+        return x[0] + "~" + String(x[1] || "").replace(/[~;|]/g, " ");
+      }).join(";"));
+      satirRotali = true;
+    }
     ek("ADIM", secili[0]); ek("AD", secili[1]);
     ek("D", durum.durum);
     var oncekiler = adimKayitlari(secili[0]);
@@ -1450,7 +1467,9 @@
            tarihSaat(kontrol.basZ) + ") önce — saatleri kontrol edin."); return;
     }
     var kid = yeniKid();
+    satirRotali = false;
     var metin = satirOlustur(kid);
+    if (satirRotali) rotaGitti(is.ie);   // kuyruk da garantiler: gönderilemese bile sonra gider
     $("#form-hata").hidden = true;
     $("#cikti-metin").textContent = metin;
     qrCiz(metin);
