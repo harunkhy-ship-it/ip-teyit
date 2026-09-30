@@ -193,6 +193,10 @@
   .ikili{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   /* tarih + saat üst üste; altında tek dokunuşluk saat düğmeleri */
   .tarih-saat{display:grid; gap:6px}
+  .ikili > *{min-width:0}                       /* tarih kutusu sütunu taşırmasın */
+  input[type=date], input[type=time]{min-width:0; max-width:100%}
+  /* Dar telefonlarda başlangıç ve bitiş alt alta */
+  @media (max-width:430px){ .zaman-ikili{grid-template-columns:1fr} }
   .hizli{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
   .hizli button{
     flex:1 1 auto; min-height:34px; padding:4px 6px; border-radius:7px; cursor:pointer;
@@ -349,7 +353,7 @@
         </div>
         <p class="not">Sicil numarası <b>her kayıtta zorunludur</b> ve her adımda
           boş gelir: işlemi kimin yaptığı yanlış kişiye yazılmasın.</p>
-        <div class="ikili" style="margin-top:12px">
+        <div class="ikili zaman-ikili" style="margin-top:12px">
           <div class="alan" style="margin:0">
             <span class="etiket">Başlangıç</span>
             <div class="tarih-saat">
