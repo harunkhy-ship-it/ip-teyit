@@ -204,6 +204,10 @@
     font:inherit; font-size:12.5px; font-family:"IBM Plex Mono", monospace;
   }
   .hizli button:active{background:var(--vurgu-soft); color:var(--vurgu)}
+  .adet-ozet{white-space:pre-line; font-variant-numeric:tabular-nums}
+  .adet-ozet.asim{color:var(--hata)}
+  .adet-uyari{margin:8px 0 0; padding:8px 11px; border-radius:var(--r); font-size:13px;
+    background:var(--ok-soft); color:var(--ok); line-height:1.4}
   .mesai-not{font-size:12px; color:var(--silik); margin:8px 0 0; line-height:1.4}
   .uclu{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px}
   @media (max-width:360px){ .uclu{grid-template-columns:1fr 1fr} }
@@ -406,7 +410,7 @@
       <div class="kart" id="adet-kart">
         <div class="uclu">
           <label class="alan" style="margin:0">
-            <span class="etiket">İyi</span>
+            <span class="etiket">İyi (bu kayıt)</span>
             <input type="number" id="iyi" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
           <label class="alan" style="margin:0">
@@ -430,7 +434,8 @@
             <option>Diğer</option>
           </select>
         </label>
-        <p class="not" id="adet-ozet">Planlanan adet: —</p>
+        <p class="not adet-ozet" id="adet-ozet">Planlanan adet: —</p>
+        <p class="adet-uyari" id="adet-uyari" hidden></p>
       </div>
 
       <h2>İlk Parça Onayı</h2>
@@ -731,6 +736,68 @@
     return sonuc;
   }
 
+  /* Adımda o ana kadar üretilen adet. Her kayıttaki «İyi» O KAYITTA üretilendir.
+     Toplam = ortak servisteki tüm kayıtların toplamı + bu telefonun henüz
+     tabloya yansımamış (yolda / bekleyen) kayıtları. Servis yoksa ya da eski
+     sürümse bu telefonun kayıtlarının toplamı. */
+  function uretimDurumu(no) {
+    var plan = parseInt(is && is.adet, 10);
+    plan = isNaN(plan) ? null : plan;
+    var yerel = adimKayitlari(no), u = sunucu.adimlar[no];
+    var toplam = 0, hurda = 0;
+    function say(k) { toplam += parseInt(k.iyi, 10) || 0; hurda += parseInt(k.hur, 10) || 0; }
+    if (sunucu.zaman && (!u || u.iyi !== undefined) && sunucu.iyiliMi !== false) {
+      if (u) { toplam = u.iyi || 0; hurda = u.hur || 0; }
+      var bekleyen = {};
+      kuyrukOku().forEach(function (q) { var id = paketKid(q); if (id) bekleyen[id] = 1; });
+      yerel.forEach(function (k) {
+        var yansidi = u && u.kidler && k.kid && u.kidler.indexOf(k.kid) >= 0;
+        var yolda = (k.kid && bekleyen[k.kid]) ||
+                    (!yansidi && (k.zaman || 0) > sunucu.zaman - 10 * 60000);
+        if (yolda) say(k);
+      });
+    } else {
+      yerel.forEach(say);
+    }
+    return { plan: plan, toplam: toplam, hurda: hurda,
+             kalan: plan != null ? Math.max(0, plan - toplam) : null };
+  }
+
+  var adetOto = false, adetOtoIptal = false;   // son parçada otomatik «Tamamlandı»
+  function adetOzetiCiz() {
+    if (!secili) return;
+    var u = uretimDurumu(secili[0]);
+    var bu = parseInt($("#iyi").value, 10); bu = isNaN(bu) ? 0 : bu;
+    var e = $("#adet-ozet"), uy = $("#adet-uyari");
+    var t, asim = false;
+    if (u.plan == null) {
+      t = "Bu adımda üretilen: " + u.toplam + (bu ? "\nBu kayıtla: " + (u.toplam + bu) : "");
+    } else {
+      t = "Bu adımda üretilen: " + u.toplam + " / " + u.plan + " · Kalan: " + u.kalan +
+          (u.hurda ? " · hurda " + u.hurda : "");
+      if (bu) {
+        var yeni = u.toplam + bu, kalan = u.plan - yeni;
+        asim = kalan < 0;
+        t += "\nBu kayıtla: " + yeni + " / " + u.plan +
+             (kalan > 0 ? " · Kalan: " + kalan : kalan === 0 ? " · son parça" :
+              " · planı " + (-kalan) + " adet aşıyor");
+        // Son parça: durum kendiliğinden «Tamamlandı» (operatör değiştirebilir)
+        if (kalan <= 0 && u.kalan > 0 && !adetOtoIptal && durum.durum !== "TAMAM") {
+          durumUygula("TAMAM");
+          adetOto = true;
+        }
+      }
+      if (durum.durum === "TAMAM" && u.plan - (u.toplam + bu) > 0) {
+        t += "\nDikkat: kalan " + (u.plan - u.toplam - bu) + " adet varken adım kapatılıyor.";
+      }
+    }
+    e.textContent = t;
+    e.className = "not adet-ozet" + (asim ? " asim" : "");
+    uy.hidden = !(adetOto && durum.durum === "TAMAM");
+    uy.textContent = "Son parça girildi: durum «Tamamlandı» olarak seçildi. " +
+                     "Değiştirmek isterseniz başka bir duruma dokunun.";
+  }
+
   /* İlerleme çubuğunun altında: bilgi nereden geliyor? */
   function ortakDurumYazisi() {
     var e = $("#k-cihaz");
@@ -773,6 +840,9 @@
       sunucu.adimlar = (v && v.adimlar) || {};
       sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
         return !!sunucu.adimlar[k].kidler; });
+      var anahtarlar = Object.keys(sunucu.adimlar);
+      sunucu.iyiliMi = !anahtarlar.length || anahtarlar.some(function (k) {
+        return sunucu.adimlar[k].iyi !== undefined; });
       sunucu.hal = "tamam";
       sunucu.zaman = Date.now();
     }).catch(function () { sunucu.hal = "hata"; })
@@ -784,8 +854,9 @@
     listeyiCiz(); ilerlemeyiCiz(); ortakDurumYazisi();
     if (secili && $("#cikti").hidden) {
       var d = adimDurumGoster(secili[0]);
-      if (!durumElle) durumUygula(oneriDurum(d));   // kullanıcı seçtiyse dokunma
+      if (!durumElle && !adetOto) durumUygula(oneriDurum(d));   // kullanıcı seçtiyse dokunma
       kuraliGoster(secili[0]);
+      adetOzetiCiz();
     }
   }
   var durumElle = false;         // operatör durum düğmesine kendisi dokundu mu
@@ -838,7 +909,12 @@
      Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
   function oneriDurum(son) {
     if (!son) return "BASLADI";
-    if (son === "BASLADI") return "TAMAM";
+    if (son === "BASLADI") {
+      // Adet planı varsa ve üretim sürüyorsa: devam kaydı («Başladı» + bu kayıtta
+      // üretilen adet); son parça girilince durum kendiliğinden «Tamamlandı» olur.
+      var ur = secili ? uretimDurumu(secili[0]) : null;
+      return ur && ur.plan != null && ur.kalan > 0 ? "BASLADI" : "TAMAM";
+    }
     if (son === "DURAKLADI") return "BASLADI";   // devam = yeniden başladı
     if (son === "SETUP") return "BASLADI";       // setup bitti → üretim başladı
     return "TAMAM";
@@ -1304,6 +1380,8 @@
     $("#btn-geri").hidden = false;
     listeyiCiz();
     durumElle = false;
+    adetOto = false; adetOtoIptal = false;
+    adetOzetiCiz();
     kuraliGoster(x[0]);
     sunucuYukle();                     // başka telefonların son girişleri
     $("#teyit").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1331,8 +1409,17 @@
   secimBagla("#durum-secim", "durum");
   $("#durum-secim").addEventListener("click", adetGorunurlugu);
   $("#durum-secim").addEventListener("click", function (e) {
-    if (e.target.closest("button[data-deger]")) durumElle = true;
+    if (!e.target.closest("button[data-deger]")) return;
+    durumElle = true;
+    // Operatör, son parça girilmişken kendisi bir durum seçtiyse ona dokunma
+    var ur = secili ? uretimDurumu(secili[0]) : null;
+    var bu = parseInt($("#iyi").value, 10) || 0;
+    if (adetOto || (ur && ur.plan != null && bu && ur.toplam + bu >= ur.plan)) {
+      adetOtoIptal = true; adetOto = false;
+    }
+    adetOzetiCiz();
   });
+  $("#iyi").addEventListener("input", adetOzetiCiz);
   secimBagla("#fai-secim", "fai");
   secimBagla("#apa-secim", "apa");
 
@@ -1405,6 +1492,9 @@
     }
     // Üretim adetleri her durumda — girildiyse yazılır
     ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
+    var ur = uretimDurumu(secili[0]), buKayit = parseInt($("#iyi").value, 10) || 0;
+    if (buKayit || ur.toplam) ek("UTOP", ur.toplam + buKayit);        // adımda üretilen toplam
+    if (ur.plan != null && (buKayit || ur.toplam)) ek("UKALAN", Math.max(0, ur.plan - ur.toplam - buKayit));
     if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
     ek("YEN", $("#yeniden").value);
     if ($("#fai-var").checked) { ek("FAI", durum.fai); ek("FKASE", $("#fai-kase").value.trim()); }
@@ -1491,6 +1581,7 @@
       bas: $("#bas-saat").value,
       basZ: sonSure ? sonSure.basZ : null,
       bitZ: sonSure ? sonSure.bitZ : null,
+      iyi: $("#iyi").value, hur: $("#hurda").value,
       saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
     });
     ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
