@@ -160,7 +160,7 @@
     align-self:flex-start; font:inherit; font-weight:600; padding:7px 12px; border-radius:8px;
     background:var(--yuzey); color:var(--hata); border:1px solid var(--hata); cursor:pointer;
   }
-  .sure-ozet{
+  .sure-ozet{white-space:pre-line;
     margin:10px 0 0; padding:9px 11px; border-radius:var(--r); background:var(--vurgu-soft);
     color:var(--ink); font-size:13px; line-height:1.45; font-variant-numeric:tabular-nums;
   }
@@ -178,12 +178,12 @@
     display:block; font-family:Archivo, sans-serif; font-size:11px; font-weight:600;
     letter-spacing:.5px; text-transform:uppercase; color:var(--ink2); margin-bottom:5px;
   }
-  input[type=text], input[type=number], input[type=time], select, textarea{
+  input[type=text], input[type=number], input[type=time], input[type=date], select, textarea{
     width:100%; box-sizing:border-box; background:var(--yuzey2); color:var(--ink);
     border:1px solid var(--cizgi2); border-radius:9px; padding:11px 12px;
     font:inherit; font-size:16px; /* iOS yakınlaştırmasın */
   }
-  input[inputmode=numeric], input[type=number], input[type=time]{
+  input[inputmode=numeric], input[type=number], input[type=time], input[type=date]{
     font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums;
   }
   textarea{min-height:76px; resize:vertical}
@@ -191,6 +191,16 @@
     outline:none; border-color:var(--vurgu); box-shadow:0 0 0 3px var(--vurgu-soft);
   }
   .ikili{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  /* tarih + saat üst üste; altında tek dokunuşluk saat düğmeleri */
+  .tarih-saat{display:grid; gap:6px}
+  .hizli{display:flex; flex-wrap:wrap; gap:5px; margin-top:6px}
+  .hizli button{
+    flex:1 1 auto; min-height:34px; padding:4px 6px; border-radius:7px; cursor:pointer;
+    background:var(--yuzey2); color:var(--ink2); border:1px solid var(--cizgi2);
+    font:inherit; font-size:12.5px; font-family:"IBM Plex Mono", monospace;
+  }
+  .hizli button:active{background:var(--vurgu-soft); color:var(--vurgu)}
+  .mesai-not{font-size:12px; color:var(--silik); margin:8px 0 0; line-height:1.4}
   .uclu{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px}
   @media (max-width:360px){ .uclu{grid-template-columns:1fr 1fr} }
 
@@ -340,23 +350,49 @@
         <p class="not">Sicil numarası <b>her kayıtta zorunludur</b> ve her adımda
           boş gelir: işlemi kimin yaptığı yanlış kişiye yazılmasın.</p>
         <div class="ikili" style="margin-top:12px">
-          <label class="alan" style="margin:0">
+          <div class="alan" style="margin:0">
             <span class="etiket">Başlangıç</span>
-            <input type="time" id="bas-saat">
-          </label>
-          <label class="alan" style="margin:0" id="bit-alan">
+            <div class="tarih-saat">
+              <input type="date" id="bas-tarih" aria-label="Başlangıç tarihi">
+              <input type="time" id="bas-saat" aria-label="Başlangıç saati">
+            </div>
+            <div class="hizli" data-hedef="bas">
+              <button type="button" data-s="simdi">Şimdi</button>
+              <button type="button" data-s="08:30">08:30</button>
+              <button type="button" data-s="13:45">13:45</button>
+              <button type="button" data-s="18:00">18:00</button>
+            </div>
+          </div>
+          <div class="alan" style="margin:0" id="bit-alan">
             <span class="etiket">Bitiş</span>
-            <input type="time" id="bit-saat">
-          </label>
+            <div class="tarih-saat">
+              <input type="date" id="bit-tarih" aria-label="Bitiş tarihi">
+              <input type="time" id="bit-saat" aria-label="Bitiş saati">
+            </div>
+            <div class="hizli" data-hedef="bit">
+              <button type="button" data-s="simdi">Şimdi</button>
+              <button type="button" data-s="12:45">12:45</button>
+              <button type="button" data-s="17:30">17:30</button>
+              <button type="button" data-s="21:00">21:00</button>
+            </div>
+          </div>
         </div>
+        <p class="mesai-not">Mesai 08:30–12:45 (10:00–10:20 mola) · 13:45–17:30 ·
+          fazla mesai 18:00–21:00. Süreler yalnız bu saatler içinde sayılır.</p>
+        <label class="anahtar" id="fm-alan" style="margin-top:10px">
+          <input type="checkbox" id="fm-var">
+          <span class="metin">Fazla mesai yapıldı (18:00–21:00)
+            <small>Başlangıç ya da bitiş bu saatlerdeyse kendiliğinden açılır. Kapalıyken
+              akşam saatleri işlemeye sayılmaz.</small></span>
+        </label>
         <p class="sure-ozet" id="sure-ozet" hidden></p>
         <div class="ikili" style="margin-top:12px" id="sure-alan">
           <label class="alan" style="margin:0">
-            <span class="etiket">Kurulum (dk)</span>
+            <span class="etiket">Setup (dk, mesai içi)</span>
             <input type="number" id="kurulum" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
           <label class="alan" style="margin:0">
-            <span class="etiket">Toplam işleme (dk)</span>
+            <span class="etiket">İşleme (dk, mesai içi)</span>
             <input type="number" id="isleme" inputmode="numeric" min="0" step="1" placeholder="0">
           </label>
         </div>
@@ -697,7 +733,8 @@
     if (!e) return;
     if (!DURUM_SERVISI) { e.textContent = "bu telefonda"; return; }
     if (sunucu.hal === "yukleniyor" && !sunucu.zaman) { e.textContent = "ortak durum okunuyor…"; return; }
-    if (sunucu.hal === "hata") {
+    // Tek bir gecikme uyarı sebebi değil: son iyi okuma 90 sn'den eskiyse söylenir.
+    if (sunucu.hal === "hata" && (!sunucu.zaman || Date.now() - sunucu.zaman > 90000)) {
       e.textContent = sunucu.zaman
         ? "ortak durum " + new Date(sunucu.zaman).toTimeString().slice(0, 5) + " (yenilenemedi)"
         : "ortak durum okunamadı — bu telefondaki";
@@ -725,7 +762,8 @@
     var istek = fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie) + "&_=" + Date.now(),
                       { cache: "no-store" })
       .then(function (r) { return r.json(); });
-    var zamanAsimi = new Promise(function (_, red) { setTimeout(red, 8000); });
+    // Apps Script bazen 10–20 sn geç cevap veriyor (soğuk başlangıç): 20 sn bekle.
+    var zamanAsimi = new Promise(function (_, red) { setTimeout(red, 20000); });
     sunucuIstegi = Promise.race([istek, zamanAsimi]).then(function (v) {
       if (!is || is.ie !== ie) return;
       sunucu.adimlar = (v && v.adimlar) || {};
@@ -766,7 +804,8 @@
     var once = is.a[i - 1], od = k[once[0]];
     if (od && od.durum === "TAMAM") return null;
     var neden = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)"
-              : sunucu.hal === "hata" ? " (Ortak durum okunamadı — bağlantıyı kontrol edip «Durumu yenile»ye dokunun.)"
+              : (sunucu.hal === "hata" && (!sunucu.zaman || Date.now() - sunucu.zaman > 90000))
+                ? " (Ortak durum okunamadı — bağlantıyı kontrol edip «Durumu yenile»ye dokunun.)"
               : sunucu.hal === "yukleniyor" ? " (Ortak durum okunuyor…)" : "";
     return { once: once,
              yazi: "Önceki adım kapanmadı: " + once[0] + " · " + once[1] + " — durumu «" +
@@ -880,7 +919,7 @@
   /* Her adım BOŞ formla başlar. En önemlisi kaşe/sicil no: bir öncekinin
      numarası taşınırsa operasyon YANLIŞ kişinin üzerine kaydedilir. */
   function formuBosalt() {
-    ["kase", "tezgah", "bas-saat", "bit-saat", "kurulum", "isleme",
+    ["kase", "tezgah", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "kurulum", "isleme",
      "iyi", "hurda", "yeniden", "fai-kase", "apa-no", "sap-metin",
      "sap-adet", "sap-kase", "not-metin"].forEach(function (id) {
       var e = $("#" + id);
@@ -888,9 +927,10 @@
     });
     $("#hurda-neden").value = "";
     $("#hurda-neden-alan").hidden = true;
-    ["fai-var", "apa-var", "sap-var"].forEach(function (id) {
+    ["fai-var", "apa-var", "sap-var", "fm-var"].forEach(function (id) {
       $("#" + id).checked = false;
     });
+    fmElle = false;
     $("#fai-ek").hidden = true;
     $("#apa-ek").hidden = true;
     $("#sap-ek").hidden = true;
@@ -948,6 +988,7 @@
     var d = durum.durum;
     var basladi = acilisMi(d), tamam = d === "TAMAM";
     $("#bit-alan").hidden = basladi;
+    $("#fm-alan").hidden = basladi;
     $("#sure-alan").hidden = basladi;      // süreler işin sonunda yazılır
 
     var s = secili ? sonraki(secili[0]) : null;
@@ -956,17 +997,78 @@
     $("#devir-var").disabled = !tamam || !s;
     $("#devir-var").checked = tamam && !!s;
 
-    var simdi = new Date().toTimeString().slice(0, 5);
-    var ilk = secili ? ilkBaslangic(secili[0]) : "";
+    var simdi = new Date().toTimeString().slice(0, 5), bugun = gunYazi(Date.now());
+    var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
     if (basladi) {
+      // «Başladı» / «Setup'ta»: o günün tarihi ve şimdiki saat
+      otoDoldur("#bas-tarih", bugun);
       otoDoldur("#bas-saat", simdi);
     } else {
-      // «Başladı» kaydındaki başlangıç saati kapatırken kendiliğinden gelir
-      if (ilk) otoDoldur("#bas-saat", ilk);
+      // Kapatırken: başlangıç ilk açılış kaydından (tarih + saat), bitiş şimdi
+      if (ilk) {
+        otoDoldur("#bas-tarih", ilk.basZ ? gunYazi(ilk.basZ) : bugun);
+        otoDoldur("#bas-saat", ilk.bas);
+      } else otoDoldur("#bas-tarih", bugun);
+      otoDoldur("#bit-tarih", bugun);
       otoDoldur("#bit-saat", simdi);
     }
     sureOzeti();
   }
+
+  /* ms → "YYYY-AA-GG" (tarih kutusunun biçimi, telefonun yerel saatiyle) */
+  function gunYazi(ms) {
+    var t = new Date(ms);
+    function iki(x) { return (x < 10 ? "0" : "") + x; }
+    return t.getFullYear() + "-" + iki(t.getMonth() + 1) + "-" + iki(t.getDate());
+  }
+  /* tarih + saat kutusu → ms (ikisi de doluysa) */
+  function kutudanZaman(tarihId, saatId) {
+    var g = $(tarihId).value, ss = $(saatId).value;
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(g) || !/^[0-9]{2}:[0-9]{2}/.test(ss)) return null;
+    return new Date(+g.slice(0, 4), +g.slice(5, 7) - 1, +g.slice(8, 10),
+                    +ss.slice(0, 2), +ss.slice(3, 5), 0, 0).getTime();
+  }
+
+  /* ------------------------------------------------ mesai pencereleri ----
+     Süreler yalnız bu saatlerde sayılır; mola, öğle arası ve mesai dışı
+     düşülür. N = normal mesai, F = fazla mesai. */
+  var MESAI = [
+    ["08:30", "10:00", "N"],   // 10:00–10:20 mola
+    ["10:20", "12:45", "N"],   // 12:45–13:45 öğle arası
+    ["13:45", "17:30", "N"],   // 17:30–18:00 ara
+    ["18:00", "21:00", "F"]    // fazla mesai
+  ];
+  /* [a, b) aralığının mesai içindeki kısmı (ms): { n, f } */
+  function mesaiIci(a, b, fazlaYok) {
+    var r = { n: 0, f: 0 };
+    if (a == null || b == null || b <= a) return r;
+    var gun = new Date(a); gun.setHours(0, 0, 0, 0);
+    for (var g = gun.getTime(); g < b; ) {
+      var d = new Date(g);
+      MESAI.forEach(function (m) {
+        var s = new Date(d); s.setHours(+m[0].slice(0, 2), +m[0].slice(3, 5), 0, 0);
+        var e = new Date(d); e.setHours(+m[1].slice(0, 2), +m[1].slice(3, 5), 0, 0);
+        var x = Math.max(a, s.getTime()), y = Math.min(b, e.getTime());
+        if (y > x) { if (m[2] === "F") { if (!fazlaYok) r.f += y - x; } else r.n += y - x; }
+      });
+      d.setDate(d.getDate() + 1);        // yaz saati geçişinde de doğru gün
+      g = d.getTime();
+    }
+    return r;
+  }
+  function araliklarMesai(liste, fazlaYok) {
+    var r = { n: 0, f: 0 };
+    liste.forEach(function (x) { var m = mesaiIci(x[0], x[1], fazlaYok); r.n += m.n; r.f += m.f; });
+    return r;
+  }
+  /* Saat fazla mesai penceresinde mi (18:00–21:00)? */
+  function fazlaMesaideMi(ms) {
+    if (ms == null) return false;
+    var t = new Date(ms), d = t.getHours() * 60 + t.getMinutes();
+    return d >= 18 * 60 && d <= 21 * 60;
+  }
+  var fmElle = false;        // operatör anahtara kendisi dokundu mu
+  function dk(ms) { return Math.round(ms / 60000); }
 
   /* Adımın bu telefondaki İLK «Başladı» kaydının başlangıç saati. */
   function ilkBaslangic(no) {
@@ -1023,32 +1125,80 @@
   }
 
   /* Formdaki saatlerden tarihli başlangıç/bitiş ve süreler. */
+  /* Tarih kutusu doluysa tarih+saat kesin; boşsa (eski davranış) saatten
+     en yakın gün çıkarılır. Süreler MESAİ PENCERELERİ içinde sayılır:
+       brut  : takvim süresi (başlangıç → bitiş)
+       nm/fm : bu aralığın normal / fazla mesai içindeki kısmı
+       setup : «Setup'ta» aralıklarının mesai içindeki kısmı
+       dur   : duraklama aralıklarının mesai içindeki kısmı
+       net   : işleme = (nm + fm) − setup − duraklama (mesai içi) */
   function sureHesabi() {
     var simdi = Date.now(), d = durum.durum;
-    var r = { basZ: null, bitZ: null, brut: null, dur: 0, setup: 0, net: null };
-    var bitZ = acilisMi(d) ? null : saatZamani($("#bit-saat").value, simdi);
+    var r = { basZ: null, bitZ: null, brut: null, dur: 0, setup: 0, net: null,
+              nm: 0, fm: 0, snm: 0, sfm: 0 };
+    var bitZ = null;
+    if (!acilisMi(d)) {
+      bitZ = kutudanZaman("#bit-tarih", "#bit-saat");
+      if (bitZ == null) bitZ = saatZamani($("#bit-saat").value, simdi);
+    }
     var ss = $("#bas-saat").value;
-    if (acilisMi(d)) {
-      r.basZ = saatZamani(ss, simdi);
-    } else {
-      var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
-      var dayanak = bitZ || simdi;
-      if (ilk && ilk.basZ && ilk.bas === ss) r.basZ = ilk.basZ;          // kayıttaki tarih
-      else if (ilk && ilk.basZ) r.basZ = saatZamani(ss, ilk.basZ);   // saat elle değişti
-      else r.basZ = saatZamani(ss, dayanak);
+    r.basZ = kutudanZaman("#bas-tarih", "#bas-saat");
+    if (r.basZ == null) {
+      if (acilisMi(d)) r.basZ = saatZamani(ss, simdi);
+      else {
+        var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
+        if (ilk && ilk.basZ && ilk.bas === ss) r.basZ = ilk.basZ;
+        else if (ilk && ilk.basZ) r.basZ = saatZamani(ss, ilk.basZ);
+        else r.basZ = saatZamani(ss, bitZ || simdi);
+      }
     }
     r.bitZ = bitZ;
     if (r.basZ != null && r.bitZ != null) {
-      r.brut = Math.round((r.bitZ - r.basZ) / 60000);
-      r.dur = secili ? duraklama(secili[0], r.basZ, r.bitZ) : 0;
-      r.setup = secili ? setupSuresi(secili[0], r.bitZ) : 0;
-      r.net = Math.max(0, r.brut - r.dur - r.setup);
+      r.brut = dk(r.bitZ - r.basZ);
+      // Fazla mesai anahtarı: operatör dokunmadıysa, başlangıç/bitiş akşamdaysa açık
+      if (!fmElle) $("#fm-var").checked = fazlaMesaideMi(r.basZ) || fazlaMesaideMi(r.bitZ);
+      var fy = !$("#fm-var").checked;
+      r.fmVar = !fy;
+      var top = mesaiIci(r.basZ, r.bitZ, fy);
+      var du = secili ? araliklarMesai(duraklamaAraliklari(secili[0], r.basZ, r.bitZ), fy) : { n: 0, f: 0 };
+      var se = secili ? araliklarMesai(setupAraliklari(secili[0], r.bitZ), fy) : { n: 0, f: 0 };
+      r.dur = dk(du.n + du.f);
+      r.setup = dk(se.n + se.f);
+      r.nm = Math.max(0, dk(top.n - du.n - se.n));     // işleme: normal mesai
+      r.fm = Math.max(0, dk(top.f - du.f - se.f));     // işleme: fazla mesai
+      r.snm = dk(se.n); r.sfm = dk(se.f);
+      r.net = r.nm + r.fm;
     }
     return r;
   }
 
   /* «Duraklatıldı» → sonraki «Başladı» arası beklemeler (dk). Kapanmamış
      (devam kaydı girilmemiş) duraklama sayılmaz. */
+  function duraklamaAraliklari(no, bas, bit) {
+    var l = adimKayitlari(no), out = [], durdu = null;
+    for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
+      var k = l[i];
+      if (k.durum === "DURAKLADI" && k.bitZ) durdu = k.bitZ;
+      else if (acilisMi(k.durum) && k.basZ && durdu != null) {
+        var a = Math.max(durdu, bas), b = Math.min(k.basZ, bit);
+        if (b > a) out.push([a, b]);
+        durdu = null;
+      }
+    }
+    return out;
+  }
+  function setupAraliklari(no, bit) {
+    var l = adimKayitlari(no), out = [], bas = null;
+    function kapat(t) { if (bas != null && t != null && t > bas) out.push([bas, t]); bas = null; }
+    for (var i = l.length - 1; i >= 0; i--) {
+      var k = l[i], t = acilisMi(k.durum) ? k.basZ : k.bitZ;
+      kapat(t);
+      if (k.durum === "SETUP" && k.basZ) bas = k.basZ;
+    }
+    kapat(bit);
+    return out;
+  }
+
   function duraklama(no, bas, bit) {
     var l = adimKayitlari(no), top = 0, durdu = null;
     for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
@@ -1091,10 +1241,11 @@
     }
     kutu.className = "sure-ozet";
     kutu.textContent = tarihSaat(r.basZ) + " → " + tarihSaat(r.bitZ) +
-      " · toplam " + sureYazi(r.brut) +
-      (r.setup ? " − setup " + sureYazi(r.setup) : "") +
-      (r.dur ? " − duraklama " + sureYazi(r.dur) : "") +
-      ((r.setup || r.dur) ? " = işleme " + sureYazi(r.net) : "");
+      " (takvim " + sureYazi(r.brut) + ")\n" +
+      "Mesai içi işleme: " + sureYazi(r.net) +
+      " = normal " + sureYazi(r.nm) + (r.fm ? " + fazla mesai " + sureYazi(r.fm) : "") +
+      (r.setup ? "\nSetup: " + sureYazi(r.setup) : "") +
+      (r.dur ? "\nDuraklama (düşüldü): " + sureYazi(r.dur) : "");
     if (r.setup) otoDoldur("#kurulum", r.setup);
     otoDoldur("#isleme", r.net);
   }
@@ -1108,10 +1259,25 @@
       e.dataset.oto = e.value ? "1" : "";
     }
   }
-  ["#bas-saat", "#bit-saat", "#isleme", "#kurulum"].forEach(function (id) {
+  ["#bas-tarih", "#bas-saat", "#bit-tarih", "#bit-saat", "#isleme", "#kurulum"].forEach(function (id) {
     $(id).addEventListener("input", function () { this.dataset.oto = ""; });
   });
-  ["#bas-saat", "#bit-saat"].forEach(function (id) {
+  // Hızlı saat düğmeleri: saat kutusunu doldurur; "Şimdi" tarihi de bugüne çeker.
+  Array.prototype.forEach.call(document.querySelectorAll(".hizli"), function (kutu) {
+    var h = kutu.dataset.hedef;
+    kutu.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-s]");
+      if (!b) return;
+      var saat = b.dataset.s === "simdi" ? new Date().toTimeString().slice(0, 5) : b.dataset.s;
+      $("#" + h + "-saat").value = saat; $("#" + h + "-saat").dataset.oto = "";
+      if (b.dataset.s === "simdi" || !$("#" + h + "-tarih").value) {
+        $("#" + h + "-tarih").value = gunYazi(Date.now()); $("#" + h + "-tarih").dataset.oto = "";
+      }
+      sureOzeti();
+    });
+  });
+  $("#fm-var").addEventListener("change", function () { fmElle = true; sureOzeti(); });
+  ["#bas-tarih", "#bit-tarih", "#bas-saat", "#bit-saat"].forEach(function (id) {
     $(id).addEventListener("input", sureOzeti);
     $(id).addEventListener("change", sureOzeti);
   });
@@ -1199,6 +1365,7 @@
     p.push("MUIF");
     ek("KID", kid);
     ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
+    ek("ADET", is.adet); ek("TOP", is.a.length);   // yönetici panosu: adet ve "12 / 27" ilerleme
     ek("ADIM", secili[0]); ek("AD", secili[1]);
     ek("D", durum.durum);
     var oncekiler = adimKayitlari(secili[0]);
@@ -1210,8 +1377,10 @@
     if (!acilisMi(durum.durum)) {              // iş yeni açıldıysa bitiş/süre olmaz
       ek("BIT", sh.bitZ != null ? tarihSaat(sh.bitZ) : $("#bit-saat").value);
       ek("KUR", $("#kurulum").value); ek("ISL", $("#isleme").value);
-      if (sh.brut != null) ek("BRUT", sh.brut);   // başlangıç → bitiş (dk)
-      if (sh.dur) ek("DUR", sh.dur);              // duraklama (dk)
+      if (sh.brut != null) ek("BRUT", sh.brut);   // takvim: başlangıç → bitiş (dk)
+      if (sh.brut != null) { ek("NM", sh.nm); ek("FM", sh.fm); }   // işleme: normal / fazla mesai (dk)
+      if (sh.brut != null && sh.fmVar) ek("FMV", "E");               // fazla mesai yapıldı
+      if (sh.dur) ek("DUR", sh.dur);              // duraklama, mesai içi (dk)
     }
     // Üretim adetleri her durumda — girildiyse yazılır
     ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
@@ -1526,7 +1695,9 @@
     // Göndermeden hemen önce ortak durumu tazele: sıra kuralı son bilgiyle denetlensin.
     var b = this;
     b.disabled = true; b.textContent = "Kontrol ediliyor…";
-    sunucuYukle().then(function () {
+    // En çok 8 sn bekle; servis geç kalırsa son bilinen durumla devam (operatör beklemesin).
+    var bekle = new Promise(function (tamam) { setTimeout(tamam, 8000); });
+    Promise.race([sunucuYukle(), bekle]).then(function () {
       if (!secili) return;
       kuraliGoster(secili[0]);           // düğmeyi taze duruma göre aç / kilitle
       if (!b.disabled) kaydiOlustur();
