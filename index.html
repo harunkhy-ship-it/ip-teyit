@@ -204,6 +204,24 @@
     font:inherit; font-size:12.5px; font-family:"IBM Plex Mono", monospace;
   }
   .hizli button:active{background:var(--vurgu-soft); color:var(--vurgu)}
+  .giris-kart{border:2px solid var(--vurgu); border-radius:var(--r); padding:14px; margin-bottom:12px;
+    background:var(--vurgu-soft)}
+  .giris-kart .giris-baslik{font-weight:700; margin:0 0 4px}
+  .giris-btn, .devral-btn{width:100%; margin-top:10px; min-height:46px; border-radius:9px; font:inherit;
+    font-weight:600; border:1px solid var(--vurgu); background:var(--vurgu); color:var(--vurgu-ink); cursor:pointer}
+  .giris-durum{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+    font-size:13px; color:var(--ink2); margin:0 0 10px; padding:7px 11px; border-radius:var(--r);
+    background:var(--yuzey2); border:1px solid var(--cizgi)}
+  .giris-durum button{font:inherit; font-size:12.5px; padding:4px 10px; border-radius:7px; cursor:pointer;
+    border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)}
+  .devral-kutu{border:2px solid var(--uyari); background:var(--uyari-soft); color:var(--ink);
+    border-radius:var(--r); padding:12px; margin-bottom:12px; font-size:13.5px; line-height:1.45}
+  .devral-kutu.onay{border-color:var(--ok); background:var(--ok-soft)}
+  .devral-btn{background:var(--uyari); border-color:var(--uyari); color:#fff}
+  input[readonly]{opacity:.85}
+  body.girissiz #bolum-liste, body.girissiz #teyit, body.girissiz #cikti,
+  body.girissiz #gecmis-bolum, body.girissiz .eylem, body.girissiz .kunye .ilerleme,
+  body.girissiz .kunye .rozetler, body.girissiz #ayar-bolum, body.girissiz #ayar-git{display:none !important}
   .adet-ozet{white-space:pre-line; font-variant-numeric:tabular-nums}
   .adet-ozet.asim{color:var(--hata)}
   .adet-uyari{margin:8px 0 0; padding:8px 11px; border-radius:var(--r); font-size:13px;
@@ -314,6 +332,23 @@
   </header>
 
   <main>
+    <div class="giris-kart" id="giris-kart" hidden>
+      <p class="giris-baslik">Giriş — Sicil ve Authenticator kodu</p>
+      <p class="not" style="margin-top:0">Rotayı görmek ve kayıt girmek için telefonunuzdaki
+        <b>Authenticator</b> uygulamasında «İP Saha» altındaki 6 haneli kodu yazın.
+        Giriş bu iş emri için vardiya sonuna (17:30; fazla mesaide 21:00) kadar geçerlidir.</p>
+      <div class="ikili">
+        <label class="alan" style="margin:0"><span class="etiket">Sicil No</span>
+          <input type="text" id="g-sicil" inputmode="numeric" autocomplete="off" placeholder="1147"></label>
+        <label class="alan" style="margin:0"><span class="etiket">6 haneli kod</span>
+          <input type="text" id="g-kod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></label>
+      </div>
+      <button type="button" class="giris-btn" id="g-giris">Giriş yap</button>
+      <p class="hata-yazi" id="g-hata" hidden></p>
+    </div>
+    <div class="giris-durum" id="giris-durum" hidden>
+      <span id="giris-yazi"></span><button type="button" id="g-cikis">Çıkış</button>
+    </div>
     <section id="bolum-liste">
       <h2>Rota Kartı — İşlem Adımları</h2>
       <div class="adimlar" id="adim-listesi"></div>
@@ -322,6 +357,10 @@
 
     <form id="teyit" hidden>
       <h2 id="secili-baslik">Operasyon Teyidi</h2>
+      <div class="devral-kutu" id="devral-kutu" hidden>
+        <span id="devral-yazi"></span>
+        <button type="button" class="devral-btn" id="devral-btn">Devral</button>
+      </div>
       <div class="kural-uyari" id="kural-uyari" hidden>
         <p id="kural-yazi"></p>
         <button type="button" id="kural-yenile">Durumu yenile</button>
@@ -346,17 +385,17 @@
           bir sonraki kayda kadar geçen süredir ve kendiliğinden hesaplanır.</p>
         <div class="ikili" style="margin-top:12px">
           <label class="alan" style="margin:0">
-            <span class="etiket">Kaşe / Sicil No *</span>
+            <span class="etiket">Sicil No (girişten)</span>
             <input type="text" id="kase" inputmode="numeric" autocomplete="off"
-                   placeholder="1147" aria-required="true">
+                   placeholder="—" aria-required="true" readonly>
           </label>
           <label class="alan" style="margin:0">
             <span class="etiket">Tezgah</span>
             <input type="text" id="tezgah" autocomplete="off" placeholder="DMU 60">
           </label>
         </div>
-        <p class="not">Sicil numarası <b>her kayıtta zorunludur</b> ve her adımda
-          boş gelir: işlemi kimin yaptığı yanlış kişiye yazılmasın.</p>
+        <p class="not">Sicil numarası <b>Authenticator girişinizden</b> gelir ve değiştirilemez:
+          kayıt yalnız giriş yapan kişi adına yazılır.</p>
         <div class="ikili zaman-ikili" style="margin-top:12px">
           <div class="alan" style="margin:0">
             <span class="etiket">Başlangıç</span>
@@ -816,6 +855,103 @@
       : "bu telefonda";
   }
 
+  /* ------------------------------------------------ giriş (Authenticator) ----
+     Giriş İŞ EMRİNE bağlıdır: her yeni iş emrinde kod bir kez sorulur; aynı işte
+     vardiya sonuna (17:30; fazla mesaide 21:00) kadar geçerlidir. Jeton sunucu
+     imzalıdır: sicil, iş emri ve bitiş içinde; kayıt yalnız bu sicil adına yazılır. */
+  function girisOku(ie) {
+    try {
+      var g = JSON.parse(localStorage.getItem("muif-giris:" + (ie || (is && is.ie))) || "null");
+      return g && g.jeton && g.bitis > Date.now() ? g : null;
+    } catch (e) { return null; }
+  }
+  function girisYaz(g) { try { localStorage.setItem("muif-giris:" + g.ie, JSON.stringify(g)); } catch (e) {} }
+  function girisSil(ie) { try { localStorage.removeItem("muif-giris:" + (ie || (is && is.ie))); } catch (e) {} }
+  function saatYaz(ms) { return new Date(ms).toTimeString().slice(0, 5); }
+
+  function girisGoster() {
+    var g = is ? girisOku() : null;
+    document.body.classList.toggle("girissiz", !g);
+    $("#giris-kart").hidden = !!g;
+    $("#giris-durum").hidden = !g;
+    if (g) {
+      $("#giris-yazi").textContent = "Giriş: " + g.sicil + (g.ad ? " · " + g.ad : "") +
+                                     " · " + saatYaz(g.bitis) + "'a kadar";
+      $("#kase").value = g.sicil;
+    } else {
+      $("#kase").value = "";
+    }
+    return g;
+  }
+  function servisPost(govde) {
+    var istek = fetch(DURUM_SERVISI, { method: "POST", body: JSON.stringify(govde) })
+      .then(function (r) { return r.json(); });
+    var zamanAsimi = new Promise(function (_, red) { setTimeout(function () { red(new Error("zaman")); }, 25000); });
+    return Promise.race([istek, zamanAsimi]);
+  }
+  $("#g-giris").addEventListener("click", function () {
+    var b = this, sicil = $("#g-sicil").value.replace(/\D/g, ""), kod = $("#g-kod").value.replace(/\D/g, "");
+    var h = $("#g-hata"); h.hidden = true;
+    if (!sicil || kod.length !== 6) { h.textContent = "Sicil numaranızı ve 6 haneli kodu yazın."; h.hidden = false; return; }
+    b.disabled = true; b.textContent = "Doğrulanıyor…";
+    servisPost({ islem: "giris", sicil: sicil, kod: kod, ie: is.ie }).then(function (r) {
+      b.disabled = false; b.textContent = "Giriş yap";
+      if (!r || !r.ok) { h.textContent = (r && r.mesaj) || "Giriş yapılamadı."; h.hidden = false; return; }
+      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis });
+      $("#g-kod").value = "";
+      girisGoster();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      sunucuYukle();                 // giriş yapınca adım kimde bilgisi de gelir
+      kuyruguBosalt();               // girişi bekleyen kayıtlar varsa gitsin
+      if (secili) kuraliGoster(secili[0]);
+    }).catch(function () {
+      b.disabled = false; b.textContent = "Giriş yap";
+      h.textContent = "Bağlantı yok ya da servis cevap vermedi. Tekrar deneyin."; h.hidden = false;
+    });
+  });
+  $("#g-cikis").addEventListener("click", function () {
+    girisSil();
+    secili = null; devralOnay = null;
+    $("#teyit").hidden = true; $("#cikti").hidden = true; $("#btn-geri").hidden = true;
+    $("#btn-ana").disabled = true; $("#btn-ana").textContent = "Adım seçin";
+    delete $("#btn-ana").dataset.mod;
+    listeyiCiz();
+    girisGoster();
+    window.scrollTo({ top: 0 });
+  });
+
+  /* Devral: adım başka bir sicilde açıksa (aynı anda iki kişi çalışmaz) kayıt
+     ancak «Devral» onayıyla açılır; süre devralma anında bölünür. */
+  var devralOnay = null;             // onaylanan adım no
+  function devralGerekli(no) {
+    var g = girisOku(), u = sunucu.adimlar[no];
+    if (!g || !u || !u.son_kase || u.durum === "TAMAM" || u.son_kase === g.sicil) return null;
+    return { kimde: u.son_kase, durum: u.durum, zaman: u.zaman };
+  }
+  function devralGoster(no) {
+    var dv = devralGerekli(no), k = $("#devral-kutu");
+    k.hidden = !dv;
+    if (!dv) return null;
+    var onay = devralOnay === no;
+    k.className = "devral-kutu" + (onay ? " onay" : "");
+    $("#devral-yazi").textContent = onay
+      ? "Devralındı: kayıt «Başladı (devraldı · önceki " + dv.kimde + ")» olarak gönderilecek. " +
+        "Önceki operatörün süresi bu anda kapanır."
+      : "Bu adım şu an " + dv.kimde + " sicilinde açık (" + (DURUM_AD[dv.durum] || dv.durum) +
+        (dv.zaman ? " · " + saatYaz(dv.zaman) : "") + "). Aynı anda iki kişi çalışamaz; " +
+        "devam etmek için devralın.";
+    $("#devral-btn").hidden = onay;
+    return dv;
+  }
+  $("#devral-btn").addEventListener("click", function () {
+    if (!secili) return;
+    devralOnay = secili[0];
+    durumElle = true;
+    durumUygula("BASLADI");
+    devralGoster(secili[0]);
+    kuraliGoster(secili[0]);
+  });
+
   /* ------------------------------------------------ ortak durum servisi */
   var sunucu = { adimlar: {}, hal: "yok" };      // yok | yukleniyor | tamam | hata
   /* Ortak durum; önbelleğe alınmaz, aynı anda tek istek. Okuma anları:
@@ -829,10 +965,14 @@
     if (sunucuIstegi) return sunucuIstegi;
     sunucu.hal = "yukleniyor";
     ortakDurumYazisi();
-    var ie = is.ie;
-    var istek = fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie) + "&_=" + Date.now(),
-                      { cache: "no-store" })
-      .then(function (r) { return r.json(); });
+    var ie = is.ie, g = girisOku(ie);
+    var istek = g
+      ? servisPost({ islem: "durum", jeton: g.jeton, ie: ie }).then(function (v) {
+          if (v && v.hata === "giris_gerekli") { girisSil(ie); girisGoster(); }
+          return v;
+        })
+      : fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie) + "&_=" + Date.now(),
+              { cache: "no-store" }).then(function (r) { return r.json(); });
     // Apps Script bazen 10–20 sn geç cevap veriyor (soğuk başlangıç): 20 sn bekle.
     var zamanAsimi = new Promise(function (_, red) { setTimeout(red, 20000); });
     sunucuIstegi = Promise.race([istek, zamanAsimi]).then(function (v) {
@@ -893,8 +1033,18 @@
     kutu.hidden = !e;
     $("#kural-yenile").hidden = !DURUM_SERVISI;
     if (e) $("#kural-yazi").textContent = e.yazi;
-    $("#btn-ana").disabled = !!e;
-    $("#btn-ana").textContent = e ? "Önceki adım kapanmadı" : "Kaydet ve Gönder";
+    var g = girisGoster(), dv = devralGoster(no);
+    var bekleyenDevral = dv && devralOnay !== no;
+    $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
+    $("#btn-ana").textContent = e ? "Önceki adım kapanmadı" : !g ? "Önce giriş yapın"
+                              : bekleyenDevral ? "Önce devralın" : "Kaydet ve Gönder";
+  }
+  function engelNedeni(no) {
+    var e = siraEngeli(no);
+    if (e) return e.yazi;
+    if (!girisOku()) return "Kayıt girmek için önce Authenticator koduyla giriş yapın.";
+    if (devralGerekli(no) && devralOnay !== no) return "Bu adım başka bir operatörde açık; önce «Devral»a dokunun.";
+    return "";
   }
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
@@ -1156,6 +1306,12 @@
     return k ? k.bas : "";
   }
   function ilkBasladiKaydi(no) {
+    var g = girisOku(), u0 = sunucu.adimlar[no];
+    if (g && u0 && u0.seg_bas && u0.son_kase === g.sicil) {
+      var ms = /^([0-9]{2})\.([0-9]{2})\.([0-9]{4}) ([0-9]{2}):([0-9]{2})/.exec(u0.seg_bas);
+      if (ms) return { bas: ms[4] + ":" + ms[5],
+                       basZ: new Date(+ms[3], +ms[2] - 1, +ms[1], +ms[4], +ms[5]).getTime() };
+    }
     var ilk = null;
     adimKayitlari(no).forEach(function (k) {   // yeniden eskiye: sona kalan en eskisi
       if (acilisMi(k.durum) && k.bas) ilk = k;
@@ -1241,7 +1397,7 @@
       r.fmVar = !fy;
       var top = mesaiIci(r.basZ, r.bitZ, fy);
       var du = secili ? araliklarMesai(duraklamaAraliklari(secili[0], r.basZ, r.bitZ), fy) : { n: 0, f: 0 };
-      var se = secili ? araliklarMesai(setupAraliklari(secili[0], r.bitZ), fy) : { n: 0, f: 0 };
+      var se = secili ? araliklarMesai(setupAraliklari(secili[0], r.bitZ, r.basZ), fy) : { n: 0, f: 0 };
       r.dur = dk(du.n + du.f);
       r.setup = dk(se.n + se.f);
       r.nm = Math.max(0, dk(top.n - du.n - se.n));     // işleme: normal mesai
@@ -1267,9 +1423,12 @@
     }
     return out;
   }
-  function setupAraliklari(no, bit) {
+  function setupAraliklari(no, bit, alt) {
     var l = adimKayitlari(no), out = [], bas = null;
-    function kapat(t) { if (bas != null && t != null && t > bas) out.push([bas, t]); bas = null; }
+    function kapat(t) {
+      if (bas != null && t != null) { var a = alt != null ? Math.max(bas, alt) : bas; if (t > a) out.push([a, t]); }
+      bas = null;
+    }
     for (var i = l.length - 1; i >= 0; i--) {
       var k = l[i], t = acilisMi(k.durum) ? k.basZ : k.bitZ;
       kapat(t);
@@ -1380,6 +1539,7 @@
     $("#btn-geri").hidden = false;
     listeyiCiz();
     durumElle = false;
+    devralOnay = null;
     adetOto = false; adetOtoIptal = false;
     adetOzetiCiz();
     kuraliGoster(x[0]);
@@ -1479,6 +1639,8 @@
     var oncekiler = adimKayitlari(secili[0]);
     if (oncekiler.length) ek("ONCE", oncekiler[0].durum);   // planlama sırayı görsün
     ek("KASE", $("#kase").value.trim());
+    var dvs = secili && devralOnay === secili[0] ? devralGerekli(secili[0]) : null;
+    if (dvs) ek("DEVRAL", dvs.kimde);
     ek("TZG", $("#tezgah").value.trim());
     var sh = sonSure = sureHesabi();
     ek("BAS", sh.basZ != null ? tarihSaat(sh.basZ) : $("#bas-saat").value);
@@ -1534,12 +1696,14 @@
   function kaydiOlustur() {
     /* Sicil no HER kayıtta zorunlu: tek bir adımda birden çok kayıt açıldığı
        için, hangi kaydı kimin girdiği ancak böyle ayırt edilir. */
-    var kase = $("#kase").value.trim();
-    if (!/^\d{1,6}$/.test(kase)) {
-      kaseAlani().classList.add("hatali");
-      $("#kase").focus();
-      hata("Kaşe / sicil numaranızı yazın (yalnızca rakam). Her işlem adımında zorunludur.");
-      return;
+    var giris = girisOku();
+    if (!giris) { girisGoster(); hata("Kayıt girmek için önce Authenticator koduyla giriş yapın."); return; }
+    $("#kase").value = giris.sicil;
+    var kase = giris.sicil;
+    var dvGerek = devralGerekli(secili[0]);
+    if (dvGerek && devralOnay !== secili[0]) { hata(engelNedeni(secili[0])); return; }
+    if (dvGerek && !acilisMi(durum.durum)) {
+      hata("Devralırken durum «Başladı» ya da «Setup'ta» olmalı."); return;
     }
     kaseAlani().classList.remove("hatali");
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
@@ -1568,14 +1732,12 @@
     $("#cikti-metin").textContent = metin;
     qrCiz(metin);
 
-    var baglanti = formBaglantisi(metin);
-    $("#form-gonder").href = baglanti || "#";
-    $("#gonderim-eylem").hidden = !baglanti;
-    $("#form-gonder").hidden = !baglanti;
+    $("#gonderim-eylem").hidden = true;
+    $("#form-gonder").hidden = true;
     $("#yeniden-dene").hidden = true;
     $("#cikti").hidden = false;
 
-    kayitYaz({
+    var yerelKayit = {
       no: secili[0], ad: secili[1], durum: durum.durum, kase: kase, kid: kid,
       zaman: Date.now(),
       bas: $("#bas-saat").value,
@@ -1583,29 +1745,43 @@
       bitZ: sonSure ? sonSure.bitZ : null,
       iyi: $("#iyi").value, hur: $("#hurda").value,
       saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
-    });
-    ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
+    };
     $("#btn-ana").textContent = "Metni Kopyala";
     $("#btn-ana").dataset.mod = "kopya";
     $("#cikti").scrollIntoView({ behavior: "smooth", block: "start" });
 
-    // --- Kaydı forma KENDİLİĞİNDEN gönder ---
-    var paket = gonderimGovdesi(metin);
-    if (!paket) {
-      durumGoster("warn", "Google Form bağlı değil — kayıt aşağıdaki QR ya da metinle iletilir.");
-      return;
-    }
+    // --- Kaydı doğrulayan servise gönder (Authenticator girişiyle) ---
+    var paket = kayitPaketi(metin, giris, !!dvGerek);
+    var yereleYaz = function () {
+      kayitYaz(yerelKayit);
+      ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
+    };
     durumGoster("", "Gönderiliyor…");
     gonder(paket).then(function () {
-      durumGoster("ok", "✓ Gönderildi — planlamanın tablosuna düştü ("
+      yereleYaz();
+      durumGoster("ok", "✓ Gönderildi — kayıt tabloya yazıldı ("
         + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) + ")");
-      $("#form-gonder").hidden = true;      // elle açmaya gerek kalmadı
-    }).catch(function () {
+    }).catch(function (e) {
+      if (e && e.kural && e.cevap && e.cevap.hata !== "giris_gerekli") {
+        // Sunucu kuralı reddetti (sıra, devral, sicil): kayıt YAZILMADI
+        durumGoster("hata", "✕ Kayıt reddedildi: " + (e.cevap.mesaj || e.cevap.hata) +
+                            " «Geri»ye dokunup adımı yeniden seçin.");
+        $("#btn-ana").textContent = "Metni Kopyala";
+        sunucuYukle();
+        return;
+      }
+      yereleYaz();
       kuyrugaAl(paket);
       bekleyeniGoster();
-      durumGoster("warn", "Bağlantı yok — kayıt telefonda saklandı, internet gelince "
-        + "kendiliğinden gönderilecek. Acilse 'Yeniden gönder'e dokunun.");
-      $("#yeniden-dene").hidden = false;
+      if (e && e.kural) {
+        girisSil(); girisGoster();
+        durumGoster("warn", "Giriş süreniz doldu — kayıt telefonda bekliyor. Adımı açıp yeniden "
+          + "giriş yapınca kendiliğinden gönderilecek.");
+      } else {
+        durumGoster("warn", "Bağlantı yok — kayıt telefonda saklandı, internet gelince "
+          + "kendiliğinden gönderilecek. Acilse 'Yeniden gönder'e dokunun.");
+        $("#yeniden-dene").hidden = false;
+      }
     });
   }
 
@@ -1668,6 +1844,17 @@
      formunu hiç görmez. Yanıt "opaque" gelir (Google başka kaynaktan okumaya
      izin vermez), bu yüzden BAŞARI = isteğin ağa çıkabilmesidir. Çıkamazsa
      kayıt telefonda kuyruğa alınır ve bağlantı gelince yeniden denenir. */
+  /* Servise gidecek kayıt (Google Form'un yerini aldı). */
+  function kayitPaketi(metin, giris, devral) {
+    var a = formAlanlari(metin);
+    return {
+      kid: kidOku(metin), metin: metin, ie: is.ie, sicil: giris.sicil, jeton: giris.jeton,
+      kayit: { ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: durum.durum,
+               iyi: a.A5, sapma: a.A6, metin: metin, isl: a.A8, setup: a.A9,
+               devral: devral, olusma: Date.now() }
+    };
+  }
+
   function gonderimGovdesi(metin) {
     var a = ayarOku();
     if (!a) return null;
@@ -1679,15 +1866,30 @@
              veri: veri, metin: metin, kid: kidOku(metin) };
   }
 
+  /* Gönderim: cevap okunur (Apps Script CORS'a izin verir). Başarı = sunucu
+     kaydı yazdı. Kural reddi → {kural:true, cevap}; ağ hatası → {ag:true}.
+     Bekleyen kayıt gönderilirken aynı kişinin daha yeni girişi varsa onun
+     jetonu kullanılır (giriş süresi dolmuş kayıt yeniden girişten sonra gider). */
   function gonder(paket) {
-    var fd = new FormData();
-    Object.keys(paket.veri).forEach(function (k) { fd.append(k, paket.veri[k]); });
-    return fetch(paket.url, { method: "POST", mode: "no-cors", body: fd })
-      .then(function (r) {
-        gonderildiIsaretle(paket.kid || kidOku(paket.metin));
-        setTimeout(sunucuYukle, 3000);          // tabloya işlendikten sonra ortak durumu tazele
-        return r;
-      });
+    if (!paket.kayit) return Promise.reject({ kural: true, cevap: { hata: "eski", mesaj: "Eski biçimli kayıt." } });
+    var g = girisOku(paket.ie), jeton = (g && g.sicil === paket.sicil) ? g.jeton : paket.jeton;
+    return servisPost({ islem: "kayit", jeton: jeton, kayit: paket.kayit }).then(function (r) {
+      if (r && r.hata === "giris_gerekli" && g && g.jeton === jeton) {
+        girisSil(paket.ie);                       // giriş geçersiz: kart yeniden açılsın
+        if (is && is.ie === paket.ie) { girisGoster(); if (secili) kuraliGoster(secili[0]); }
+      }
+      if (!r || !r.ok) throw { kural: true, cevap: r || {} };
+      gonderildiIsaretle(paket.kid || kidOku(paket.metin));
+      if (r.adimlar && is && is.ie === paket.ie) {
+        sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+        sunucu.kidliMi = true; sunucu.iyiliMi = true;
+        setTimeout(yenidenCiz, 0);
+      }
+      return r;
+    }, function (e) {
+      if (e && e.kural) throw e;
+      throw { ag: true };
+    });
   }
 
   /* Bu telefondan gönderildiği kesinleşen kayıt numaraları (son 300). */
@@ -1723,7 +1925,7 @@
      başlatabiliyordu; iki boşaltma aynı kuyruğu okuyup aynı kaydı iki kez
      gönderiyordu. Artık tek boşaltma çalışır, gönderildiği bilinen kayıt
      atlanır, boşaltma sırasında kuyruğa yeni giren kayıt da silinmez. */
-  var bosaltma = null;
+  var bosaltma = null, reddedilen = [];
   function paketKid(x) { return x.kid || kidOku(x.metin) || x.metin; }
   function kuyruguBosalt() {
     if (bosaltma) return bosaltma;
@@ -1735,7 +1937,13 @@
         var id = paketKid(paket);
         if (biten[id] || giden.indexOf(id) >= 0) { biten[id] = 1; return; }
         return gonder(paket).then(function () { gonderilen++; biten[id] = 1; })
-                            .catch(function () { /* kuyrukta kalır */ });
+          .catch(function (e) {
+            if (e && e.kural && (!e.cevap || e.cevap.hata !== "giris_gerekli")) {
+              biten[id] = 1;                     // kural reddi: bekletmenin anlamı yok
+              reddedilen.push((paket.kayit ? "Adım " + paket.kayit.adim_no + ": " : "") +
+                              ((e.cevap && e.cevap.mesaj) || "reddedildi"));
+            }                                    // ağ / giriş: kuyrukta kalır
+          });
       });
     }, Promise.resolve()).then(function () {
       kuyrukYaz(kuyrukOku().filter(function (x) { return !biten[paketKid(x)]; }));
@@ -1749,6 +1957,11 @@
   function bekleyeniGoster() {
     var n = kuyrukOku().length;
     var e = $("#bekleyen");
+    if (reddedilen.length) {
+      e.hidden = false;
+      e.textContent = "Bekleyen kayıt reddedildi — " + reddedilen.join(" · ");
+      return;
+    }
     e.hidden = n === 0;
     e.textContent = n ? (n + " kayıt gönderilmeyi bekliyor — dokunun") : "";
   }
@@ -1815,7 +2028,7 @@
       if (!secili) return;
       kuraliGoster(secili[0]);           // düğmeyi taze duruma göre aç / kilitle
       if (!b.disabled) kaydiOlustur();
-      else hata(siraEngeli(secili[0]).yazi);
+      else hata(engelNedeni(secili[0]));
     });
   });
   $("#btn-geri").addEventListener("click", function () {
@@ -1828,12 +2041,15 @@
 
   /* =========================================================== başlangıç ==*/
   function isiYukle(veri, qrdanMi) {
+    devralOnay = null;
     is = veri; ornekMi = !qrdanMi;
     secili = null;
     $("#teyit").hidden = true; $("#cikti").hidden = true;
     $("#btn-ana").disabled = true; $("#btn-ana").textContent = "Adım seçin";
     delete $("#btn-ana").dataset.mod; $("#btn-geri").hidden = true;
     kunyeyiCiz(); listeyiCiz(); ilerlemeyiCiz();
+    girisGoster();
+    if (!girisOku()) setTimeout(function () { try { $("#g-sicil").focus(); } catch (e) {} }, 300);
     sunucu = { adimlar: {}, hal: "yok" };
     sunucuYukle();
   }
@@ -1860,6 +2076,7 @@
     });
   });
   $("#bekleyen").addEventListener("click", function () {
+    if (reddedilen.length) { reddedilen = []; bekleyeniGoster(); return; }
     this.textContent = "Gönderiliyor…";
     kuyruguBosalt().then(bekleyeniGoster);
   });
@@ -1868,7 +2085,7 @@
   /* Veri biçimi değişti (tarihli saatler): bu sürüme ilk geçişte telefondaki
      ESKİ kayıtlar, bekleyen kuyruk ve gönderim izleri bir kez silinir.
      Form bağlantısı (muif-form) korunur. */
-  var VERI_SURUMU = "11";
+  var VERI_SURUMU = "12";
   try {
     if (localStorage.getItem("muif-veri-surumu") !== VERI_SURUMU) {
       Object.keys(localStorage).forEach(function (k) {
