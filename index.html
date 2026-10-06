@@ -163,6 +163,12 @@
   .fm-gunler label{display:flex; align-items:center; gap:10px; font-size:14.5px; cursor:pointer; margin-bottom:4px}
   .fm-gunler input{width:22px; height:22px; accent-color:var(--vurgu); flex:0 0 auto}
   .fm-gunler .fm-kayitli{margin:6px 0 0; font-size:13px; color:var(--ink2)}
+  .fm-cikis{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 8px 32px}
+  .fm-cikis input{font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--cizgi2);
+    background:var(--yuzey); color:var(--ink); min-height:42px}
+  .fm-cikis button{font:inherit; font-size:13px; padding:8px 10px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)}
+  .fm-hsonu{margin:0; font-size:13.5px; line-height:1.45}
 
   /* adımın o anki durumu — form başlığının hemen altında */
   .adim-durum{
@@ -467,11 +473,23 @@
         <p class="mesai-not">Mesai 08:30–12:45 (10:00–10:20 mola) · 13:45–17:30 ·
           fazla mesai 18:00–21:00; Cumartesi / Pazar tamamı fazla mesai. Süreler yalnız bu saatler içinde sayılır.</p>
         <div class="fm-gunler" id="fm-alan">
-          <label><input type="checkbox" id="fm-var">
-            <span><b>Bugün (<span id="fm-bugun">—</span>) fazla mesai yapıldı</b> · 18:00–21:00</span></label>
-          <small>İşaret bu kaydın girildiği güne eklenir. İş birkaç gün sürüyorsa mesaiye kaldığınız
-            her gün, o gün girdiğiniz kayıtta (ör. akşam «Duraklatıldı» ya da devam «Başladı») işaretleyin.
-            İşaretlenmeyen günün akşamı sayılmaz. Cumartesi / Pazar işaretliyse günün tamamı fazla mesaidir.</small>
+          <div id="fm-hici">
+            <label><input type="checkbox" id="fm-var">
+              <span><b>Bugün (<span id="fm-bugun">—</span>) fazla mesai yapıldı</b> · 18:00–21:00</span></label>
+            <div class="fm-cikis" id="fm-cikis-alan" hidden>
+              <span>Çıkış saati</span>
+              <input type="time" id="fm-cikis" min="18:00" max="21:00" step="300" aria-label="Fazla mesai çıkış saati">
+              <button type="button" data-fm="19:00">19:00</button>
+              <button type="button" data-fm="20:00">20:00</button>
+              <button type="button" data-fm="21:00">21:00</button>
+            </div>
+            <small>İşaret bu kaydın girildiği güne eklenir; fazla mesai 18:00'den seçtiğiniz çıkış saatine kadar
+              sayılır. İş birkaç gün sürüyorsa mesaiye kaldığınız her gün, o gün girdiğiniz kayıtta
+              (ör. akşam «Duraklatıldı») işaretleyin. İşaretlenmeyen günün akşamı sayılmaz.</small>
+          </div>
+          <p class="fm-hsonu" id="fm-hsonu" hidden><b>Hafta sonu (<span id="fm-hs-gun">—</span>):</b>
+            bugünkü çalışmanız fazla mesai sayılır. Gelince «Başladı», ayrılırken «Duraklatıldı» ya da
+            «Tamamlandı» girin; molalar hafta içi gibi düşülür.</p>
           <p class="fm-kayitli" id="fm-kayitli" hidden></p>
         </div>
         <p class="sure-ozet" id="sure-ozet" hidden></p>
@@ -1314,7 +1332,7 @@
     ["fai-var", "apa-var", "sap-var", "fm-var"].forEach(function (id) {
       $("#" + id).checked = false;
     });
-    fmElle = false;
+    fmElle = false; $("#fm-cikis").value = "";
     $("#fai-ek").hidden = true;
     $("#apa-ek").hidden = true;
     $("#sap-ek").hidden = true;
@@ -1437,10 +1455,14 @@
         var s = new Date(d); s.setHours(+m[0].slice(0, 2), +m[0].slice(3, 5), 0, 0);
         var e = new Date(d); e.setHours(+m[1].slice(0, 2), +m[1].slice(3, 5), 0, 0);
         var x = Math.max(a, s.getTime()), y = Math.min(b, e.getTime());
-        var fazlaSay = fazlaYok && typeof fazlaYok === "object" ? !!fazlaYok[gunAnahtari(d.getTime())] : !fazlaYok;
-        // Cumartesi / Pazar: günün tamamı fazla mesaidir (yalnız fazla mesai işaretli gün sayılır)
+        var fv = fazlaYok && typeof fazlaYok === "object" ? fazlaYok[gunAnahtari(d.getTime())] : !fazlaYok;
+        // Cumartesi / Pazar: günün tamamı fazla mesaidir (yalnız çalışılan / işaretli gün sayılır)
         var tur = (d.getDay() === 0 || d.getDay() === 6) ? "F" : m[2];
-        if (y > x) { if (tur === "F") { if (fazlaSay) r.f += y - x; } else r.n += y - x; }
+        if (tur === "F" && typeof fv === "string") {          // hafta içi: çıkış saatine kadar
+          var c = new Date(d); c.setHours(+fv.slice(0, 2), +fv.slice(3, 5), 0, 0);
+          y = Math.min(y, c.getTime());
+        }
+        if (y > x) { if (tur === "F") { if (fv) r.f += y - x; } else r.n += y - x; }
       });
       d.setDate(d.getDate() + 1);        // yaz saati geçişinde de doğru gün
       g = d.getTime();
@@ -1462,21 +1484,42 @@
   /* Fazla mesai «mevcut güne»: anahtar her zaman BUGÜNÜ işaretler. Adımın daha
      önce işaretlenmiş günleri ortak servisten (fmg) ve bu telefonun kayıtlarından gelir. */
   function bugunAnahtari() { return gunAnahtari(Date.now()); }
+  function haftaSonuMu(ms) { var g = new Date(ms).getDay(); return g === 0 || g === 6; }
+  /* "gg.aa.yyyy" → tüm gün; "gg.aa.yyyy@SS:DD" → 18:00'den o saate kadar. Aynı gün birden
+     çok girilirse en geniş olan geçerli. */
+  function fmEkle(o, deger) {
+    var p = String(deger || "").split("@"), g = p[0], v = p[1] || true;
+    if (!g) return;
+    if (o[g] === true || v === true) o[g] = true;
+    else if (!o[g] || v > o[g]) o[g] = v;
+  }
   function kayitliFmGunleri(no) {
     var o = {}, u = sunucu.adimlar[no];
-    ((u && u.fmg) || []).forEach(function (g) { o[g] = true; });
-    adimKayitlari(no).forEach(function (k) { (k.fmg || []).forEach(function (g) { o[g] = true; }); });
+    ((u && u.fmg) || []).forEach(function (g) { fmEkle(o, g); });
+    adimKayitlari(no).forEach(function (k) { (k.fmg || []).forEach(function (g) { fmEkle(o, g); }); });
     return o;
   }
+  /* Bu kaydın eklediği fazla mesai: hafta sonu → bugün (tüm gün); hafta içi → işaretliyse bugün@çıkış */
+  function buKayitFmg() {
+    if (haftaSonuMu(Date.now())) return bugunAnahtari();
+    if ($("#fm-var").checked && $("#fm-cikis").value) return bugunAnahtari() + "@" + $("#fm-cikis").value.slice(0, 5);
+    return "";
+  }
   function fmGoster() {
+    var hs = haftaSonuMu(Date.now());
+    $("#fm-hici").hidden = hs; $("#fm-hsonu").hidden = !hs;
     $("#fm-bugun").textContent = bugunAnahtari().slice(0, 5);
-    var l = secili ? Object.keys(kayitliFmGunleri(secili[0])).sort(function (a, b) {
-      return a.split(".").reverse().join("").localeCompare(b.split(".").reverse().join("")); }) : [];
+    $("#fm-hs-gun").textContent = bugunAnahtari().slice(0, 5) + " " + GUN_ADI[new Date().getDay()];
+    $("#fm-cikis-alan").hidden = hs || !$("#fm-var").checked;
+    var m = secili ? kayitliFmGunleri(secili[0]) : {};
+    var l = Object.keys(m).sort(function (a, b) {
+      return a.split(".").reverse().join("").localeCompare(b.split(".").reverse().join("")); });
     var e = $("#fm-kayitli");
     e.hidden = !l.length;
-    e.textContent = l.length ? "Bu adımda kayıtlı fazla mesai günleri: " +
-      l.map(function (g) { return g.slice(0, 5); }).join(" · ") : "";
+    e.textContent = l.length ? "Bu adımda kayıtlı fazla mesai: " + l.map(function (g) {
+      return g.slice(0, 5) + (m[g] === true ? "" : " (" + m[g] + "'e kadar)"); }).join(" · ") : "";
   }
+  var GUN_ADI = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
   function dk(ms) { return Math.round(ms / 60000); }
 
   /* Adımın bu telefondaki İLK «Başladı» kaydının başlangıç saati. */
@@ -1570,9 +1613,12 @@
     r.bitZ = bitZ;
     if (r.basZ != null && r.bitZ != null) {
       r.brut = dk(r.bitZ - r.basZ);
-      // Fazla mesai: yalnız işaretlenen günler (adımın kayıtlı günleri + işaretliyse bugün)
+      // Fazla mesai: adımın kayıtlı günleri + bu kayıt (hafta içi: çıkış saatine kadar; hafta
+      // sonu: tüm gün) + başlangıç / bitiş hafta sonundaysa o gün
       var fy = secili ? kayitliFmGunleri(secili[0]) : {};
-      if ($("#fm-var").checked) fy[bugunAnahtari()] = true;
+      fmEkle(fy, buKayitFmg());
+      if (haftaSonuMu(r.basZ)) fmEkle(fy, gunAnahtari(r.basZ));
+      if (haftaSonuMu(r.bitZ)) fmEkle(fy, gunAnahtari(r.bitZ));
       r.fmVar = Object.keys(fy).length > 0;
       var top = mesaiIci(r.basZ, r.bitZ, fy);
       var du = secili ? araliklarMesai(duraklamaAraliklari(secili[0], r.basZ, r.bitZ), fy) : { n: 0, f: 0 };
@@ -1694,7 +1740,16 @@
       sureOzeti();
     });
   });
-  $("#fm-var").addEventListener("change", function () { fmElle = true; sureOzeti(); });
+  $("#fm-var").addEventListener("change", function () {
+    fmElle = true;
+    if (!this.checked) $("#fm-cikis").value = "";
+    fmGoster(); sureOzeti();
+    if (this.checked) $("#fm-cikis").focus();
+  });
+  $("#fm-cikis").addEventListener("input", sureOzeti);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-fm]"), function (b) {
+    b.addEventListener("click", function () { $("#fm-cikis").value = b.dataset.fm; sureOzeti(); });
+  });
   ["#bas-tarih", "#bit-tarih", "#bas-saat", "#bit-saat"].forEach(function (id) {
     $(id).addEventListener("input", sureOzeti);
     $(id).addEventListener("change", sureOzeti);
@@ -1852,7 +1907,7 @@
       if (sh.dur) ek("DUR", sh.dur);              // duraklama, mesai içi (dk)
     }
     // Fazla mesai bu kaydın gününe eklenir (her durumda): gg.aa.yyyy
-    if ($("#fm-var").checked) ek("FMG", bugunAnahtari());
+    ek("FMG", buKayitFmg());
     // Üretim adetleri her durumda — girildiyse yazılır
     ek("IYI", $("#iyi").value); ek("HUR", $("#hurda").value);
     var ur = uretimDurumu(secili[0]), buKayit = parseInt($("#iyi").value, 10) || 0;
@@ -1901,6 +1956,15 @@
     if (!giris) { girisGoster(); hata("Kayıt girmek için önce Authenticator koduyla giriş yapın."); return; }
     $("#kase").value = giris.sicil;
     var kase = giris.sicil;
+    if (!haftaSonuMu(Date.now()) && $("#fm-var").checked) {
+      var fc = $("#fm-cikis").value;
+      if (!/^([0-9]{2}):([0-9]{2})/.test(fc) || fc < "18:00" || fc > "21:00") {
+        hata("Fazla mesai çıkış saatini seçin (18:00–21:00)."); $("#fm-cikis").focus(); return;
+      }
+      if (fc > new Date().toTimeString().slice(0, 5)) {
+        hata("Fazla mesai çıkış saati şu andan ileride olamaz (" + fc + ")."); return;
+      }
+    }
     var dvGerek = devralGerekli(secili[0]);
     if (dvGerek && devralOnay !== secili[0]) { hata(engelNedeni(secili[0])); return; }
     if (dvGerek && !acilisMi(durum.durum)) {
@@ -1945,7 +2009,7 @@
       basZ: sonSure ? sonSure.basZ : null,
       bitZ: sonSure ? sonSure.bitZ : null,
       iyi: $("#iyi").value, hur: $("#hurda").value,
-      fmg: $("#fm-var").checked ? [bugunAnahtari()] : [],
+      fmg: buKayitFmg() ? [buKayitFmg()] : [],
       saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
     };
     $("#btn-ana").textContent = "Metni Kopyala";
