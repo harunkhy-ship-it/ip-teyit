@@ -141,6 +141,21 @@
   .adim.setupta .no{background:var(--vurgu-soft); border-color:transparent; color:var(--vurgu)}
   .adim.basladi .no{background:var(--uyari-soft); border-color:transparent; color:var(--uyari)}
   .adim.durdu .no{background:var(--hata-soft); border-color:transparent; color:var(--hata)}
+  .cip.iptal{background:var(--yuzey2); color:var(--silik); text-decoration:line-through}
+  .adim.iptal .ad{text-decoration:line-through; color:var(--silik)}
+  .adim.iptal .no{color:var(--silik)}
+  .adim.kilitli{opacity:.62}
+  .adim.kilitli .alt::before{content:"🔒 "}
+  .yonetici-kutu{border:1.5px dashed var(--ink2); border-radius:var(--r); padding:12px; margin-bottom:12px;
+    background:var(--yuzey2); font-size:13.5px}
+  .yonetici-kutu .yk-baslik{font-weight:700; margin:0 0 6px; font-size:13px; letter-spacing:.3px}
+  .yonetici-kutu .yk-dugmeler{display:flex; gap:8px; flex-wrap:wrap}
+  .yonetici-kutu button{font:inherit; font-size:13px; padding:8px 12px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)}
+  .yonetici-kutu button.tehlike{border-color:var(--hata); color:var(--hata)}
+  .yonetici-kutu textarea{width:100%; min-height:62px; margin-top:8px; font:inherit; padding:8px;
+    border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)}
+  select#tezgah:disabled{opacity:.85}
 
   /* adımın o anki durumu — form başlığının hemen altında */
   .adim-durum{
@@ -361,6 +376,22 @@
         <span id="devral-yazi"></span>
         <button type="button" class="devral-btn" id="devral-btn">Devral</button>
       </div>
+      <div class="yonetici-kutu" id="yonetici-kutu" hidden>
+        <p class="yk-baslik" id="yk-baslik">YÖNETİCİ</p>
+        <p class="not" id="yk-yazi" style="margin:0 0 8px"></p>
+        <div class="yk-dugmeler">
+          <button type="button" class="tehlike" id="yk-iptal">Adımı iptal et</button>
+          <button type="button" id="yk-geri">Son kaydı geri al</button>
+        </div>
+        <div id="yk-onay" hidden>
+          <textarea id="yk-gerekce" maxlength="300" placeholder="Gerekçe (zorunlu)"></textarea>
+          <div class="yk-dugmeler" style="margin-top:8px">
+            <button type="button" class="tehlike" id="yk-gonder">Onayla</button>
+            <button type="button" id="yk-vazgec">Vazgeç</button>
+          </div>
+        </div>
+        <p class="hata-yazi" id="yk-hata" hidden></p>
+      </div>
       <div class="kural-uyari" id="kural-uyari" hidden>
         <p id="kural-yazi"></p>
         <button type="button" id="kural-yenile">Durumu yenile</button>
@@ -391,7 +422,7 @@
           </label>
           <label class="alan" style="margin:0">
             <span class="etiket">Tezgah</span>
-            <input type="text" id="tezgah" autocomplete="off" placeholder="DMU 60">
+            <select id="tezgah"><option value="">Seçin</option></select>
           </label>
         </div>
         <p class="not">Sicil numarası <b>Authenticator girişinizden</b> gelir ve değiştirilemez:
@@ -751,6 +782,7 @@
     var sonuc = {};
     Object.keys(sunucu.adimlar).forEach(function (no) {
       var u = sunucu.adimlar[no], y = s[no];
+      if (!u.durum) return;
       var ayni = y && (u.son_kid ? u.son_kid === y.kid
                      : (y.durum === u.durum && Math.abs((y.zaman || 0) - (u.zaman || 0)) < 10 * 60000));
       // Servisteki son kayıt bu telefonunkiyse telefonunkini göster (kaşe bilgisi var)
@@ -868,6 +900,17 @@
   function girisYaz(g) { try { localStorage.setItem("muif-giris:" + g.ie, JSON.stringify(g)); } catch (e) {} }
   function girisSil(ie) { try { localStorage.removeItem("muif-giris:" + (ie || (is && is.ie))); } catch (e) {} }
   function saatYaz(ms) { return new Date(ms).toTimeString().slice(0, 5); }
+  function yoneticiMi(g) { return !!g && (g.rol === "Master" || g.rol === "Admin"); }
+  function altNorm(s) { return String(s || "").toLocaleUpperCase("tr-TR").replace(/\s+/g, " ").trim(); }
+  /* Operatör yalnız kendi altyapısının adımına kayıt girer. Altyapısı atanmamış
+     operatör, yönetici ve altyapısı QR'da olmayan (eski İP) adım: kısıt yok. */
+  function altyapiEngeli(x) {
+    var g = girisOku();
+    if (!g || yoneticiMi(g) || !(g.altyapi || []).length || !x || !x[2]) return null;
+    if (g.altyapi.map(altNorm).indexOf(altNorm(x[2])) >= 0) return null;
+    return { yazi: "Bu adım «" + x[2] + "» altyapısına ait. Kayıt yalnız o altyapının operatörleri " +
+                   "ve yöneticiler tarafından girilebilir." };
+  }
 
   function girisGoster() {
     var g = is ? girisOku() : null;
@@ -876,6 +919,7 @@
     $("#giris-durum").hidden = !g;
     if (g) {
       $("#giris-yazi").textContent = "Giriş: " + g.sicil + (g.ad ? " · " + g.ad : "") +
+                                     (yoneticiMi(g) ? " · " + (g.rol === "Master" ? "Master" : "Yönetici") : "") +
                                      " · " + saatYaz(g.bitis) + "'a kadar";
       $("#kase").value = g.sicil;
     } else {
@@ -897,7 +941,8 @@
     servisPost({ islem: "giris", sicil: sicil, kod: kod, ie: is.ie }).then(function (r) {
       b.disabled = false; b.textContent = "Giriş yap";
       if (!r || !r.ok) { h.textContent = (r && r.mesaj) || "Giriş yapılamadı."; h.hidden = false; return; }
-      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis });
+      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis,
+                 rol: r.rol || "Operatör", altyapi: r.altyapi || [], tezgahlar: r.tezgahlar || [] });
       $("#g-kod").value = "";
       girisGoster();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -952,6 +997,79 @@
     kuraliGoster(secili[0]);
   });
 
+  /* Yönetici (Master / Admin): adımı iptal et, iptali kaldır, son kaydı geri al.
+     Kayıt silinmez: tabloya gerekçeli ayrı satır düşer. Bağlantı gerekir (kuyruğa alınmaz). */
+  var ykIslem = null;                 // { durum: "IPTAL" | "GERIAL", ref }
+  function yoneticiGoster(no) {
+    var g = girisOku(), k = $("#yonetici-kutu");
+    k.hidden = !yoneticiMi(g);
+    if (k.hidden) return;
+    var u = sunucu.adimlar[no], d = u && u.durum;
+    $("#yk-baslik").textContent = g.rol === "Master" ? "MASTER ADMIN" : "YÖNETİCİ";
+    var iptal = d === "IPTAL";
+    $("#yk-iptal").textContent = iptal ? "İptali kaldır" : "Adımı iptal et";
+    $("#yk-iptal").className = iptal ? "" : "tehlike";
+    $("#yk-geri").hidden = iptal || !d;
+    $("#yk-yazi").textContent = !sunucu.zaman ? "Ortak durum okunuyor…"
+      : iptal ? "Adım iptal edildi" + (u.iptal_gerekce ? " (gerekçe: " + u.iptal_gerekce + ")" : "") + "."
+      : d ? "Son kayıt: " + (DURUM_AD[d] || d) + " · " + saatYaz(u.zaman) + (u.son_kase ? " · " + u.son_kase : "")
+      : "Bu adımda kayıt yok.";
+    if (!ykIslem) $("#yk-onay").hidden = true;
+  }
+  function ykBasla(islem) {
+    ykIslem = islem;
+    $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
+    $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
+    $("#yk-gonder").textContent = islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
+      : islem.iptalKaldir ? "Onayla: iptali kaldır" : "Onayla: son kaydı geri al";
+  }
+  $("#yk-iptal").addEventListener("click", function () {
+    if (!secili) return;
+    var u = sunucu.adimlar[secili[0]];
+    if (u && u.durum === "IPTAL") ykBasla({ durum: "GERIAL", ref: u.son_kid, iptalKaldir: true });
+    else ykBasla({ durum: "IPTAL" });
+  });
+  $("#yk-geri").addEventListener("click", function () {
+    var u = secili && sunucu.adimlar[secili[0]];
+    if (u && u.son_kid) ykBasla({ durum: "GERIAL", ref: u.son_kid });
+  });
+  $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; });
+  $("#yk-gonder").addEventListener("click", function () {
+    var g = girisOku(), b = this, h = $("#yk-hata");
+    var grk = $("#yk-gerekce").value.replace(/[|\n\r]/g, " ").trim();
+    h.hidden = true;
+    if (!g || !secili || !ykIslem) return;
+    if (!grk) { h.textContent = "Gerekçe yazın."; h.hidden = false; return; }
+    var p = ["MUIF"];
+    function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
+    ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
+    ek("ADET", is.adet); ek("TOP", is.a.length);
+    ek("ADIM", secili[0]); ek("AD", secili[1]); ek("ALT", secili[2]);
+    ek("D", ykIslem.durum); ek("KASE", g.sicil); ek("GRK", grk); ek("REF", ykIslem.ref);
+    ek("T", new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }));
+    var metin = p.join("|");
+    b.disabled = true;
+    servisPost({ islem: "kayit", jeton: g.jeton, kayit: {
+      ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: ykIslem.durum, gerekce: grk,
+      ref: ykIslem.ref || "", metin: metin, olusma: Date.now(), altyapi: secili[2] || "" } })
+    .then(function (r) {
+      b.disabled = false;
+      if (!r || !r.ok) {
+        if (r && r.hata === "giris_gerekli") { girisSil(); girisGoster(); }
+        h.textContent = (r && r.mesaj) || "İşlem yapılamadı."; h.hidden = false;
+        sunucuYukle(); return;
+      }
+      ykIslem = null; $("#yk-onay").hidden = true;
+      sunucu.adimlar = r.adimlar || sunucu.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+      durumElle = false;
+      adimDurumGoster(secili[0]);
+      yenidenCiz();
+    }).catch(function () {
+      b.disabled = false;
+      h.textContent = "Bağlantı yok; yönetici işlemleri çevrimiçi yapılır. Tekrar deneyin."; h.hidden = false;
+    });
+  });
+
   /* ------------------------------------------------ ortak durum servisi */
   var sunucu = { adimlar: {}, hal: "yok" };      // yok | yukleniyor | tamam | hata
   /* Ortak durum; önbelleğe alınmaz, aynı anda tek istek. Okuma anları:
@@ -969,6 +1087,10 @@
     var istek = g
       ? servisPost({ islem: "durum", jeton: g.jeton, ie: ie }).then(function (v) {
           if (v && v.hata === "giris_gerekli") { girisSil(ie); girisGoster(); }
+          if (v && v.ok && v.rol) {
+            var g2 = girisOku(ie);
+            if (g2) { g2.rol = v.rol; g2.altyapi = v.altyapi || []; girisYaz(g2); }
+          }
           return v;
         })
       : fetch(DURUM_SERVISI + "?ie=" + encodeURIComponent(ie) + "&_=" + Date.now(),
@@ -1017,7 +1139,7 @@
     var k = adimDurumlari();
     if (k[no]) return null;
     var once = is.a[i - 1], od = k[once[0]];
-    if (od && od.durum === "TAMAM") return null;
+    if (od && kapaliMi(od.durum)) return null;
     var neden = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)"
               : (sunucu.hal === "hata" && (!sunucu.zaman || Date.now() - sunucu.zaman > 90000))
                 ? " (Ortak durum okunamadı — bağlantıyı kontrol edip «Durumu yenile»ye dokunun.)"
@@ -1028,19 +1150,31 @@
                    "girilmeli; bu adıma kayıt açılamaz." + neden };
   }
 
+  function iptalEngeli(no) {
+    var u = adimDurumlari()[no];
+    if (!u || u.durum !== "IPTAL") return null;
+    var gr = sunucu.adimlar[no] && sunucu.adimlar[no].iptal_gerekce;
+    return { yazi: "Bu adım yönetici tarafından iptal edildi" + (gr ? " (gerekçe: " + gr + ")" : "") +
+                   "; kayıt girilemez." };
+  }
+  function secilenAdim(no) { return is.a.filter(function (x) { return x[0] === no; })[0]; }
+  function tumEngel(no) { return iptalEngeli(no) || altyapiEngeli(secilenAdim(no)) || siraEngeli(no); }
   function kuraliGoster(no) {
-    var e = siraEngeli(no), kutu = $("#kural-uyari");
+    var e = tumEngel(no), kutu = $("#kural-uyari");
     kutu.hidden = !e;
     $("#kural-yenile").hidden = !DURUM_SERVISI;
     if (e) $("#kural-yazi").textContent = e.yazi;
     var g = girisGoster(), dv = devralGoster(no);
     var bekleyenDevral = dv && devralOnay !== no;
     $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
-    $("#btn-ana").textContent = e ? "Önceki adım kapanmadı" : !g ? "Önce giriş yapın"
+    yoneticiGoster(no);
+    $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
+                                      ? "Başka altyapının adımı" : "Önceki adım kapanmadı")
+                              : !g ? "Önce giriş yapın"
                               : bekleyenDevral ? "Önce devralın" : "Kaydet ve Gönder";
   }
   function engelNedeni(no) {
-    var e = siraEngeli(no);
+    var e = tumEngel(no);
     if (e) return e.yazi;
     if (!girisOku()) return "Kayıt girmek için önce Authenticator koduyla giriş yapın.";
     if (devralGerekli(no) && devralOnay !== no) return "Bu adım başka bir operatörde açık; önce «Devral»a dokunun.";
@@ -1048,8 +1182,10 @@
   }
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
-  var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı" };
-  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam" };
+  var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı",
+                   IPTAL: "İptal" };
+  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam", IPTAL: "iptal" };
+  function kapaliMi(d) { return d === "TAMAM" || d === "IPTAL"; }
 
   /* «Başladı» ve «Setup'ta» işi AÇAN kayıtlardır: yalnız başlangıç saati taşır,
      bitiş/süre yazılmaz; duraklamadan sonra devam da sayılır. */
@@ -1071,7 +1207,8 @@
   }
 
   function adimKayitlari(no) {
-    return kayitlariOku().filter(function (k) { return k.no === no; });
+    var geri = (sunucu.adimlar[no] && sunucu.adimlar[no].geri) || [];
+    return kayitlariOku().filter(function (k) { return k.no === no && geri.indexOf(k.kid) < 0; });
   }
 
   /* ============================================================== çizim ==*/
@@ -1088,7 +1225,7 @@
 
   function ilerlemeyiCiz() {
     var k = adimDurumlari(), n = 0;
-    is.a.forEach(function (x) { if (k[x[0]] && k[x[0]].durum === "TAMAM") n++; });
+    is.a.forEach(function (x) { if (k[x[0]] && kapaliMi(k[x[0]].durum)) n++; });
     var yuzde = is.a.length ? Math.round(n / is.a.length * 100) : 0;
     $("#k-cubuk").style.width = yuzde + "%";
     $("#k-ilerleme").textContent = n + " / " + is.a.length + " adım kapatıldı";
@@ -1119,9 +1256,10 @@
       var b = document.createElement("button");
       b.type = "button";
       b.className = "adim" + (d === "TAMAM" ? " kapali"
+                            : d === "IPTAL" ? " iptal"
                             : d === "BASLADI" ? " basladi"
                             : d === "SETUP" ? " setupta"
-                            : d === "DURAKLADI" ? " durdu" : "");
+                            : d === "DURAKLADI" ? " durdu" : "") + (altyapiEngeli(x) ? " kilitli" : "");
       b.setAttribute("aria-pressed", secili && secili[0] === no ? "true" : "false");
       var nb = document.createElement("span");
       nb.className = "no"; nb.textContent = no;
@@ -1141,6 +1279,10 @@
     });
   }
 
+  function oncekiAdimNo(no) {
+    var i = is.a.findIndex(function (x) { return x[0] === no; });
+    return i > 0 ? is.a[i - 1][0] : "";
+  }
   function sonraki(no) {
     var i = is.a.findIndex(function (x) { return x[0] === no; });
     return (i >= 0 && i + 1 < is.a.length) ? is.a[i + 1] : null;
@@ -1193,6 +1335,7 @@
       if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
+      else if (d === "IPTAL") y += " — adım yönetici tarafından iptal edildi.";
       else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
       if (liste.length > 1) y += " (bu adımda " + liste.length + " kayıt)";
     }
@@ -1521,9 +1664,29 @@
     $(id).addEventListener("change", sureOzeti);
   });
 
+  /* Tezgah: listeden seçilir. Adım adında tezgah varsa ("… (DMU 60)") doğrudan yazılır. */
+  var TEZGAH_YEDEK = ["VC 750", "MVC 1100", "DMU 60", "DMU 95", "NTX 2500", "UNIVERSAL TORNA", "TC 65",
+    "SCHAUBLIN 642-Y", "TC 110L", "ROBOFIL 440", "CUT P 550 PRO", "KOMPAK 1 50A", "MANUEL İŞLEMLER", "UZAY 540"];
+  function tezNorm(t) { return String(t || "").toLocaleUpperCase("tr-TR").replace(/[^0-9A-ZÇĞİÖŞÜ]/g, ""); }
+  function tezgahDoldur(x) {
+    var g = girisOku(), liste = (g && g.tezgahlar && g.tezgahlar.length) ? g.tezgahlar : TEZGAH_YEDEK;
+    var sel = $("#tezgah");
+    sel.textContent = "";
+    var bos = document.createElement("option"); bos.value = ""; bos.textContent = "Seçin";
+    sel.appendChild(bos);
+    liste.forEach(function (t) {
+      var o = document.createElement("option"); o.value = t; o.textContent = t; sel.appendChild(o);
+    });
+    var m = /\(([^()]+)\)\s*$/.exec(x[1] || ""), adda = null;
+    if (m) liste.forEach(function (t) { if (tezNorm(t) === tezNorm(m[1])) adda = t; });
+    sel.value = adda || "";
+    sel.disabled = !!adda;                 // İP'deki tezgah: değiştirilmez
+  }
+
   function adimSec(x) {
     secili = x;
     formuBosalt();
+    tezgahDoldur(x);
     $("#secili-baslik").textContent = "Adım " + x[0] + " — " + x[1];
     durumUygula(oneriDurum(adimDurumGoster(x[0])));
     $("#teyit").hidden = false;
@@ -1539,7 +1702,7 @@
     $("#btn-geri").hidden = false;
     listeyiCiz();
     durumElle = false;
-    devralOnay = null;
+    devralOnay = null; ykIslem = null;
     adetOto = false; adetOtoIptal = false;
     adetOzetiCiz();
     kuraliGoster(x[0]);
@@ -1634,7 +1797,7 @@
       }).join(";"));
       satirRotali = true;
     }
-    ek("ADIM", secili[0]); ek("AD", secili[1]);
+    ek("ADIM", secili[0]); ek("AD", secili[1]); ek("ALT", secili[2]);
     ek("D", durum.durum);
     var oncekiler = adimKayitlari(secili[0]);
     if (oncekiler.length) ek("ONCE", oncekiler[0].durum);   // planlama sırayı görsün
@@ -1851,7 +2014,8 @@
       kid: kidOku(metin), metin: metin, ie: is.ie, sicil: giris.sicil, jeton: giris.jeton,
       kayit: { ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: durum.durum,
                iyi: a.A5, sapma: a.A6, metin: metin, isl: a.A8, setup: a.A9,
-               devral: devral, olusma: Date.now() }
+               devral: devral, olusma: Date.now(), altyapi: secili[2] || "",
+               onceki_no: oncekiAdimNo(secili[0]) }
     };
   }
 
