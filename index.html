@@ -933,11 +933,24 @@
   function altNorm(s) { return String(s || "").toLocaleUpperCase("tr-TR").replace(/\s+/g, " ").trim(); }
   /* Operatör yalnız kendi altyapısının adımına kayıt girer. Altyapısı atanmamış
      operatör, yönetici ve altyapısı QR'da olmayan (eski İP) adım: kısıt yok. */
+  /* Kilitte geçerli altyapı (sunucuyla aynı kural): Öncesi / Sonrası Kontrol, Sevk, Kaplama,
+     Ara Ölçüm herkese açık; iç Isıl İşlem, Tahribatsız ve Kalite Kontrol (Boyutsal) kendi
+     gruplarına kilitli; diğerleri İP'deki altyapı. */
+  function etkinAltyapi(ad, alt) {
+    if (!alt) return "";
+    var n = altNorm(ad);
+    if (/ÖNCESİ KONTROL|SONRASI KONTROL|^SEVK|KAPLAMA|ARA ÖLÇÜM/.test(n)) return "";
+    if (/ISIL İŞLEM/.test(n)) return altNorm(alt) === "DSB" ? alt : "Isıl İşlem";
+    if (/TAHRİBATSIZ/.test(n)) return "Tahribatsız Kalite Kontrol Altyapısı";
+    if (/KALİTE KONTROL|BOYUTSAL/.test(n)) return "Boyutsal Kalite Kontrol Laboratuvarı";
+    return alt;
+  }
   function altyapiEngeli(x) {
     var g = girisOku();
-    if (!g || yoneticiMi(g) || !(g.altyapi || []).length || !x || !x[2]) return null;
-    if (g.altyapi.map(altNorm).indexOf(altNorm(x[2])) >= 0) return null;
-    return { yazi: "Bu adım «" + x[2] + "» altyapısına ait. Kayıt yalnız o altyapının operatörleri " +
+    if (!g || yoneticiMi(g) || !(g.altyapi || []).length || !x) return null;
+    var etkin = etkinAltyapi(x[1], x[2]);
+    if (!etkin || g.altyapi.map(altNorm).indexOf(altNorm(etkin)) >= 0) return null;
+    return { yazi: "Bu adım «" + etkin + "» altyapısına ait. Kayıt yalnız o altyapının operatörleri " +
                    "ve yöneticiler tarafından girilebilir." };
   }
 
