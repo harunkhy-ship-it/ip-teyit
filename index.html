@@ -465,13 +465,13 @@
           </div>
         </div>
         <p class="mesai-not">Mesai 08:30–12:45 (10:00–10:20 mola) · 13:45–17:30 ·
-          fazla mesai 18:00–21:00. Süreler yalnız bu saatler içinde sayılır.</p>
+          fazla mesai 18:00–21:00; Cumartesi / Pazar tamamı fazla mesai. Süreler yalnız bu saatler içinde sayılır.</p>
         <div class="fm-gunler" id="fm-alan">
           <label><input type="checkbox" id="fm-var">
             <span><b>Bugün (<span id="fm-bugun">—</span>) fazla mesai yapıldı</b> · 18:00–21:00</span></label>
           <small>İşaret bu kaydın girildiği güne eklenir. İş birkaç gün sürüyorsa mesaiye kaldığınız
             her gün, o gün girdiğiniz kayıtta (ör. akşam «Duraklatıldı» ya da devam «Başladı») işaretleyin.
-            Saat 18:00–21:00 arasındaysa kendiliğinden işaretlenir.</small>
+            İşaretlenmeyen günün akşamı sayılmaz. Cumartesi / Pazar işaretliyse günün tamamı fazla mesaidir.</small>
           <p class="fm-kayitli" id="fm-kayitli" hidden></p>
         </div>
         <p class="sure-ozet" id="sure-ozet" hidden></p>
@@ -1438,7 +1438,9 @@
         var e = new Date(d); e.setHours(+m[1].slice(0, 2), +m[1].slice(3, 5), 0, 0);
         var x = Math.max(a, s.getTime()), y = Math.min(b, e.getTime());
         var fazlaSay = fazlaYok && typeof fazlaYok === "object" ? !!fazlaYok[gunAnahtari(d.getTime())] : !fazlaYok;
-        if (y > x) { if (m[2] === "F") { if (fazlaSay) r.f += y - x; } else r.n += y - x; }
+        // Cumartesi / Pazar: günün tamamı fazla mesaidir (yalnız fazla mesai işaretli gün sayılır)
+        var tur = (d.getDay() === 0 || d.getDay() === 6) ? "F" : m[2];
+        if (y > x) { if (tur === "F") { if (fazlaSay) r.f += y - x; } else r.n += y - x; }
       });
       d.setDate(d.getDate() + 1);        // yaz saati geçişinde de doğru gün
       g = d.getTime();
@@ -1468,7 +1470,6 @@
   }
   function fmGoster() {
     $("#fm-bugun").textContent = bugunAnahtari().slice(0, 5);
-    if (!fmElle) $("#fm-var").checked = fazlaMesaideMi(Date.now());
     var l = secili ? Object.keys(kayitliFmGunleri(secili[0])).sort(function (a, b) {
       return a.split(".").reverse().join("").localeCompare(b.split(".").reverse().join("")); }) : [];
     var e = $("#fm-kayitli");
@@ -1569,11 +1570,9 @@
     r.bitZ = bitZ;
     if (r.basZ != null && r.bitZ != null) {
       r.brut = dk(r.bitZ - r.basZ);
-      // Fazla mesai: adımın kayıtlı günleri + (işaretliyse) bugün + akşam başlayan / biten gün
+      // Fazla mesai: yalnız işaretlenen günler (adımın kayıtlı günleri + işaretliyse bugün)
       var fy = secili ? kayitliFmGunleri(secili[0]) : {};
       if ($("#fm-var").checked) fy[bugunAnahtari()] = true;
-      if (fazlaMesaideMi(r.basZ)) fy[gunAnahtari(r.basZ)] = true;
-      if (fazlaMesaideMi(r.bitZ)) fy[gunAnahtari(r.bitZ)] = true;
       r.fmVar = Object.keys(fy).length > 0;
       var top = mesaiIci(r.basZ, r.bitZ, fy);
       var du = secili ? araliklarMesai(duraklamaAraliklari(secili[0], r.basZ, r.bitZ), fy) : { n: 0, f: 0 };
