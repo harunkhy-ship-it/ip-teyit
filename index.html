@@ -142,6 +142,13 @@
   .adim.basladi .no{background:var(--uyari-soft); border-color:transparent; color:var(--uyari)}
   .adim.durdu .no{background:var(--hata-soft); border-color:transparent; color:var(--hata)}
   .cip.iptal{background:var(--yuzey2); color:var(--silik); text-decoration:line-through}
+  .cip.hazir{background:var(--ok-soft); color:var(--ok); border:1px dashed var(--ok)}
+  .adim.hazir .no{background:var(--ok-soft); border-color:transparent; color:var(--ok)}
+  .malzeme-kutu{border:2px solid var(--ok); background:var(--ok-soft); border-radius:var(--r); padding:12px;
+    margin-bottom:12px; font-size:13.5px; line-height:1.45}
+  .malzeme-kutu b.soru{display:block; font-size:15px; margin-bottom:4px}
+  .malzeme-kutu button{width:100%; margin-top:10px; min-height:46px; border-radius:9px; font:inherit; font-weight:600;
+    border:1px solid var(--ok); background:var(--ok); color:#fff; cursor:pointer}
   .adim.iptal .ad{text-decoration:line-through; color:var(--silik)}
   .adim.iptal .no{color:var(--silik)}
   .adim.kilitli{opacity:.62}
@@ -406,6 +413,12 @@
           </div>
         </div>
         <p class="hata-yazi" id="yk-hata" hidden></p>
+      </div>
+      <div class="malzeme-kutu" id="malzeme-kutu" hidden>
+        <b class="soru">Malzeme hazır mı geldi?</b>
+        <span id="malzeme-yazi"></span>
+        <button type="button" id="malzeme-evet">Evet, malzeme hazır geldi</button>
+        <p class="hata-yazi" id="malzeme-hata" hidden></p>
       </div>
       <div class="kural-uyari" id="kural-uyari" hidden>
         <p id="kural-yazi"></p>
@@ -1112,6 +1125,46 @@
     });
   });
 
+  $("#malzeme-evet").addEventListener("click", function () {
+    var g = girisOku(), b = this, h = $("#malzeme-hata");
+    h.hidden = true;
+    if (!g || !secili) return;
+    var i = is.a.findIndex(function (x) { return x[0] === secili[0]; });
+    var l = malzemeAtlanabilir(i, adimDurumlari());
+    if (!l) { kuraliGoster(secili[0]); return; }
+    var rotali = !rotaGittiMi(is.ie);
+    var adimlar = l.map(function (x, n) {
+      var p = ["MUIF"];
+      function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
+      ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
+      ek("ADET", is.adet); ek("TOP", is.a.length);
+      if (rotali && n === 0) ek("ROTA", is.a.map(function (y) {
+        return y[0] + "~" + String(y[1] || "").replace(/[~;|]/g, " "); }).join(";"));
+      ek("ADIM", x[0]); ek("AD", x[1]); ek("ALT", x[2]);
+      ek("D", "ATLANDI"); ek("KASE", g.sicil); ek("MHAZIR", "E"); ek("SONRAKI", secili[0]);
+      ek("T", new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }));
+      return { adim_no: x[0], adim_ad: x[1], metin: p.join("|") };
+    });
+    b.disabled = true; b.textContent = "Gönderiliyor…";
+    servisPost({ islem: "malzemeHazir", jeton: g.jeton, ie: is.ie, adimlar: adimlar }).then(function (r) {
+      b.disabled = false; b.textContent = "Evet, malzeme hazır geldi";
+      if (!r || !r.ok) {
+        if (r && r.hata === "giris_gerekli") { girisSil(); girisGoster(); }
+        h.textContent = (r && r.mesaj) || "Onay gönderilemedi."; h.hidden = false; sunucuYukle(); return;
+      }
+      if (rotali) rotaGitti(is.ie);
+      adimlar.forEach(function (a) {
+        kayitYaz({ no: a.adim_no, ad: a.adim_ad, durum: "ATLANDI", kase: g.sicil, kid: kidOku(a.metin),
+                   zaman: Date.now(), saat: new Date().toTimeString().slice(0, 5) });
+      });
+      sunucu.adimlar = r.adimlar || sunucu.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+      yenidenCiz();
+    }).catch(function () {
+      b.disabled = false; b.textContent = "Evet, malzeme hazır geldi";
+      h.textContent = "Bağlantı yok; malzeme onayı çevrimiçi verilir. Tekrar deneyin."; h.hidden = false;
+    });
+  });
+
   /* ------------------------------------------------ ortak durum servisi */
   var sunucu = { adimlar: {}, hal: "yok" };      // yok | yukleniyor | tamam | hata
   /* Ortak durum; önbelleğe alınmaz, aynı anda tek istek. Okuma anları:
@@ -1187,7 +1240,7 @@
               : (sunucu.hal === "hata" && (!sunucu.zaman || Date.now() - sunucu.zaman > 90000))
                 ? " (Ortak durum okunamadı — bağlantıyı kontrol edip «Durumu yenile»ye dokunun.)"
               : sunucu.hal === "yukleniyor" ? " (Ortak durum okunuyor…)" : "";
-    return { once: once,
+    return { once: once, malzeme: malzemeAtlanabilir(i, k),
              yazi: "Önceki adım kapanmadı: " + once[0] + " · " + once[1] + " — durumu «" +
                    (od ? DURUM_AD[od.durum] : "Açık") + "». Önce o adım «Tamamlandı» " +
                    "girilmeli; bu adıma kayıt açılamaz." + neden };
@@ -1204,7 +1257,12 @@
   function tumEngel(no) { return iptalEngeli(no) || altyapiEngeli(secilenAdim(no)) || siraEngeli(no); }
   function kuraliGoster(no) {
     var e = tumEngel(no), kutu = $("#kural-uyari");
-    kutu.hidden = !e;
+    var mz = e && e.malzeme && girisOku() ? e.malzeme : null;
+    $("#malzeme-kutu").hidden = !mz;
+    if (mz) $("#malzeme-yazi").textContent = "Önceki adımlar kapanmadı: " + mz.map(function (x) {
+      return x[0] + " · " + x[1]; }).join(", ") + ". Malzeme kesilmiş / etiketlenmiş hazır geldiyse onaylayın; " +
+      "bu adımlar «Malzeme hazır» olarak kapanır ve bu adıma geçersiniz.";
+    kutu.hidden = !e || !!mz;
     $("#kural-yenile").hidden = !DURUM_SERVISI;
     if (e) $("#kural-yazi").textContent = e.yazi;
     var g = girisGoster(), dv = devralGoster(no);
@@ -1212,7 +1270,7 @@
     $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
     yoneticiGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
-                                      ? "Başka altyapının adımı" : "Önceki adım kapanmadı")
+                                      ? "Başka altyapının adımı" : mz ? "Önce malzeme onayı" : "Önceki adım kapanmadı")
                               : !g ? "Önce giriş yapın"
                               : bekleyenDevral ? "Önce devralın" : "Kaydet ve Gönder";
   }
@@ -1226,9 +1284,24 @@
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
   var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı",
-                   IPTAL: "İptal" };
-  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam", IPTAL: "iptal" };
-  function kapaliMi(d) { return d === "TAMAM" || d === "IPTAL"; }
+                   IPTAL: "İptal", ATLANDI: "Malzeme hazır" };
+  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam", IPTAL: "iptal",
+                    ATLANDI: "hazir" };
+  function kapaliMi(d) { return d === "TAMAM" || d === "IPTAL" || d === "ATLANDI"; }
+  /* Malzeme adımları: malzeme hazır gelirse yapılmadan geçilebilir */
+  var MALZEME_ADIMLARI = ["MALZEME TEMİNİ", "HAM MALZEME KESİMİ", "HAM MALZEME ETİKETLEME/İŞARETLEME"];
+  function malzemeAdimiMi(ad) { return MALZEME_ADIMLARI.indexOf(altNorm(ad)) >= 0; }
+  /* i. adımın önünde kapanmamış adımların HEPSİ kayıtsız malzeme adımıysa onların listesi */
+  function malzemeAtlanabilir(i, k) {
+    var l = [];
+    for (var j = i - 1; j >= 0; j--) {
+      var x = is.a[j], d = k[x[0]];
+      if (d && kapaliMi(d.durum)) break;
+      if (d || !malzemeAdimiMi(x[1])) return null;
+      l.unshift(x);
+    }
+    return l.length ? l : null;
+  }
 
   /* «Başladı» ve «Setup'ta» işi AÇAN kayıtlardır: yalnız başlangıç saati taşır,
      bitiş/süre yazılmaz; duraklamadan sonra devam da sayılır. */
@@ -1300,6 +1373,7 @@
       b.type = "button";
       b.className = "adim" + (d === "TAMAM" ? " kapali"
                             : d === "IPTAL" ? " iptal"
+                            : d === "ATLANDI" ? " hazir"
                             : d === "BASLADI" ? " basladi"
                             : d === "SETUP" ? " setupta"
                             : d === "DURAKLADI" ? " durdu" : "") + (altyapiEngeli(x) ? " kilitli" : "");
@@ -1379,6 +1453,7 @@
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
       else if (d === "IPTAL") y += " — adım yönetici tarafından iptal edildi.";
+      else if (d === "ATLANDI") y += " — malzeme hazır geldi; bu adım yapılmadan geçildi.";
       else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
       if (liste.length > 1) y += " (bu adımda " + liste.length + " kayıt)";
     }
