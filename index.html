@@ -405,6 +405,12 @@
           <button type="button" class="tehlike" id="yk-iptal">Adımı iptal et</button>
           <button type="button" id="yk-geri">Son kaydı geri al</button>
         </div>
+        <div class="yk-dugmeler" style="margin-top:8px">
+          <button type="button" id="yk-yukari">▲ Yukarı taşı</button>
+          <button type="button" id="yk-asagi">▼ Aşağı taşı</button>
+          <button type="button" id="yk-sira-geri" hidden>Sıra değişikliğini geri al</button>
+        </div>
+        <p class="not" id="yk-sira-yazi" style="margin:6px 0 0"></p>
         <div id="yk-onay" hidden>
           <textarea id="yk-gerekce" maxlength="300" placeholder="Gerekçe (zorunlu)"></textarea>
           <div class="yk-dugmeler" style="margin-top:8px">
@@ -451,6 +457,7 @@
           <label class="alan" style="margin:0">
             <span class="etiket">Tezgah</span>
             <select id="tezgah"><option value="">Seçin</option></select>
+            <small id="tezgah-not" class="not" style="margin:4px 0 0" hidden></small>
           </label>
         </div>
         <p class="not">Sicil numarası <b>Authenticator girişinizden</b> gelir ve değiştirilemez:
@@ -1070,13 +1077,96 @@
       : d ? "Son kayıt: " + (DURUM_AD[d] || d) + " · " + saatYaz(u.zaman) + (u.son_kase ? " · " + u.son_kase : "")
       : "Bu adımda kayıt yok.";
     if (!ykIslem) $("#yk-onay").hidden = true;
+    siraDugmeleri(no);
   }
   function ykBasla(islem) {
     ykIslem = islem;
     $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
     $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
-    $("#yk-gonder").textContent = islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
+    $("#yk-gonder").textContent = islem.sira === "TASI" ? "Onayla: " + islem.yazi
+      : islem.sira === "GERIAL" ? "Onayla: sıra değişikliğini geri al"
+      : islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
       : islem.iptalKaldir ? "Onayla: iptali kaldır" : "Onayla: son kaydı geri al";
+  }
+
+  /* ---- Rota sırası: yönetici kayıtsız adımların yerini değiştirir; herkes sunucudaki sırayı görür.
+     Proses bloğu (Öncesi Kontrol → Sevk → İşlem → Sonrası Kontrol) ve ara ölçüm (4.1) birlikte taşınır. */
+  var tasinan = {};
+  function siraUygula() {
+    if (!is || !is.aQR) return;
+    var q = is.aQR, l = q;
+    if (sunucu.sira && sunucu.sira.length) {
+      var m = {}; q.forEach(function (x) { m[x[0]] = x; });
+      l = sunucu.sira.map(function (no) { return m[no]; }).filter(Boolean);
+      q.forEach(function (x) { if (l.indexOf(x) < 0) l.push(x); });
+    }
+    tasinan = {};
+    l.forEach(function (x, i) { if (q[i] !== x) tasinan[x[0]] = true; });
+    is.a = l.slice();
+  }
+  function birimler(liste) {
+    var out = [], blok = null;
+    liste.forEach(function (x) {
+      var ad = altNorm(x[1]);
+      if (blok) { blok.push(x); if (/SONRASI KONTROL$/.test(ad)) blok = null; return; }
+      if (/^[0-9]+\.[0-9]+$/.test(x[0]) && out.length) { out[out.length - 1].push(x); return; }   // 4.1 bağlı adımla
+      if (/ÖNCESİ KONTROL$/.test(ad)) { blok = [x]; out.push(blok); return; }
+      out.push([x]);
+    });
+    return out;
+  }
+  /* Seçili adımın birimini yön (-1 yukarı / +1 aşağı) kadar taşı: { yeni[], yazi } ya da { engel } */
+  function siraTasi(no, yon) {
+    var b = birimler(is.a), k = adimDurumlari();
+    var ui = b.findIndex(function (u) { return u.some(function (x) { return x[0] === no; }); });
+    var hi = ui + yon;
+    if (ui < 0 || hi < 0 || hi >= b.length) return { engel: "Rotanın " + (yon < 0 ? "başında" : "sonunda") + "." };
+    var kayitli = function (u) { return u.some(function (x) { return !!k[x[0]]; }); };
+    if (kayitli(b[ui])) return { engel: "Bu adıma kayıt girilmiş; yeri değiştirilemez." };
+    if (kayitli(b[hi])) return { engel: (yon < 0 ? "Üstteki" : "Alttaki") + " adıma kayıt girilmiş; yer değiştirilemez." };
+    var t = b[ui]; b[ui] = b[hi]; b[hi] = t;
+    var ad = function (u) { return u[0][0] + " · " + u[0][1] + (u.length > 1 ? " (+" + (u.length - 1) + ")" : ""); };
+    return { yeni: [].concat.apply([], b).map(function (x) { return x[0]; }),
+             yazi: ad(b[hi]) + " ↔ " + ad(b[ui]) };
+  }
+  function siraDugmeleri(no) {
+    var y = siraTasi(no, -1), a = siraTasi(no, 1);
+    $("#yk-yukari").disabled = !!y.engel; $("#yk-asagi").disabled = !!a.engel;
+    $("#yk-sira-geri").hidden = !(sunucu.sira && sunucu.sira.length);
+    var notlar = [y.engel, a.engel].filter(function (e, i, l) {
+      return e && !/başında|sonunda/.test(e) && l.indexOf(e) === i; });
+    $("#yk-sira-yazi").textContent = notlar.join(" ");
+  }
+  $("#yk-yukari").addEventListener("click", function () {
+    var r = secili && siraTasi(secili[0], -1);
+    if (r && r.yeni) ykBasla({ sira: "TASI", yeni: r.yeni, yazi: "yukarı taşı (" + r.yazi + ")" });
+  });
+  $("#yk-asagi").addEventListener("click", function () {
+    var r = secili && siraTasi(secili[0], 1);
+    if (r && r.yeni) ykBasla({ sira: "TASI", yeni: r.yeni, yazi: "aşağı taşı (" + r.yazi + ")" });
+  });
+  $("#yk-sira-geri").addEventListener("click", function () { ykBasla({ sira: "GERIAL" }); });
+  function siraGonder(g, grk, b, h) {
+    var govde = ykIslem.sira === "TASI"
+      ? { islem: "siraDegistir", jeton: g.jeton, ie: is.ie, gerekce: grk,
+          eski: is.a.map(function (x) { return x[0]; }), yeni: ykIslem.yeni }
+      : { islem: "siraGeriAl", jeton: g.jeton, ie: is.ie, gerekce: grk,
+          qr: is.aQR.map(function (x) { return x[0]; }) };
+    b.disabled = true;
+    servisPost(govde).then(function (r) {
+      b.disabled = false;
+      if (!r || !r.ok) {
+        if (r && r.hata === "giris_gerekli") { girisSil(); girisGoster(); }
+        h.textContent = (r && r.mesaj) || "İşlem yapılamadı."; h.hidden = false; sunucuYukle(); return;
+      }
+      ykIslem = null; $("#yk-onay").hidden = true;
+      sunucu.sira = r.sira || null; sunucu.adimlar = r.adimlar || sunucu.adimlar;
+      sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+      siraUygula(); yenidenCiz();
+    }).catch(function () {
+      b.disabled = false;
+      h.textContent = "Bağlantı yok; rota sırası çevrimiçi değiştirilir. Tekrar deneyin."; h.hidden = false;
+    });
   }
   $("#yk-iptal").addEventListener("click", function () {
     if (!secili) return;
@@ -1095,6 +1185,7 @@
     h.hidden = true;
     if (!g || !secili || !ykIslem) return;
     if (!grk) { h.textContent = "Gerekçe yazın."; h.hidden = false; return; }
+    if (ykIslem.sira) { siraGonder(g, grk, b, h); return; }
     var p = ["MUIF"];
     function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
     ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
@@ -1138,7 +1229,7 @@
       function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
       ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
       ek("ADET", is.adet); ek("TOP", is.a.length);
-      if (rotali && n === 0) ek("ROTA", is.a.map(function (y) {
+      if (rotali && n === 0) ek("ROTA", (is.aQR || is.a).map(function (y) {
         return y[0] + "~" + String(y[1] || "").replace(/[~;|]/g, " "); }).join(";"));
       ek("ADIM", x[0]); ek("AD", x[1]); ek("ALT", x[2]);
       ek("D", "ATLANDI"); ek("KASE", g.sicil); ek("MHAZIR", "E"); ek("SONRAKI", secili[0]);
@@ -1195,6 +1286,8 @@
     sunucuIstegi = Promise.race([istek, zamanAsimi]).then(function (v) {
       if (!is || is.ie !== ie) return;
       sunucu.adimlar = (v && v.adimlar) || {};
+      sunucu.sira = (v && v.sira) || null;
+      siraUygula();
       sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
         return !!sunucu.adimlar[k].kidler; });
       var anahtarlar = Object.keys(sunucu.adimlar);
@@ -1290,7 +1383,9 @@
   function kapaliMi(d) { return d === "TAMAM" || d === "IPTAL" || d === "ATLANDI"; }
   /* Malzeme adımları: malzeme hazır gelirse yapılmadan geçilebilir */
   var MALZEME_ADIMLARI = ["MALZEME TEMİNİ", "HAM MALZEME KESİMİ", "HAM MALZEME ETİKETLEME/İŞARETLEME"];
-  function malzemeAdimiMi(ad) { return MALZEME_ADIMLARI.indexOf(altNorm(ad)) >= 0; }
+  function malzemeAdimiMi(ad) {         // «Ham Malzeme Kesimi (UZAY 540)»: parantez yok sayılır
+    return MALZEME_ADIMLARI.indexOf(altNorm(String(ad || "").replace(/\s*\([^()]*\)\s*$/, ""))) >= 0;
+  }
   /* i. adımın önünde kapanmamış adımların HEPSİ kayıtsız malzeme adımıysa onların listesi */
   function malzemeAtlanabilir(i, k) {
     var l = [];
@@ -1385,7 +1480,7 @@
       var adEl = document.createElement("span");
       adEl.className = "ad"; adEl.textContent = ad;
       var altEl = document.createElement("span");
-      altEl.className = "alt"; altEl.textContent = icdis;
+      altEl.className = "alt"; altEl.textContent = icdis + (tasinan[no] ? "  ↕ sıra değişti" : "");
       orta.appendChild(adEl); orta.appendChild(altEl);
       var cip = document.createElement("span");
       cip.className = "cip " + (DURUM_CIP[d] || "ac");
@@ -1859,7 +1954,9 @@
     var m = /\(([^()]+)\)\s*$/.exec(x[1] || ""), adda = null;
     if (m) liste.forEach(function (t) { if (tezNorm(t) === tezNorm(m[1])) adda = t; });
     sel.value = adda || "";
-    sel.disabled = !!adda;                 // İP'deki tezgah: değiştirilmez
+    sel.disabled = false;                  // İP'deki tezgah öneri olarak gelir; işi yapan değiştirebilir
+    $("#tezgah-not").hidden = !adda;
+    $("#tezgah-not").textContent = adda ? "İP'deki tezgah: " + adda + " — işi başka tezgahta yaptıysanız değiştirin." : "";
   }
 
   function adimSec(x) {
@@ -1971,7 +2068,7 @@
     // Rotanın tamamı: bu telefondan bu iş için İLK kayıtta bir kez gider; pano
     // kayıt girilmemiş adımları da ("Bekliyor") bununla gösterir.
     if (!rotaGittiMi(is.ie)) {
-      ek("ROTA", is.a.map(function (x) {
+      ek("ROTA", (is.aQR || is.a).map(function (x) {
         return x[0] + "~" + String(x[1] || "").replace(/[~;|]/g, " ");
       }).join(";"));
       satirRotali = true;
@@ -2237,6 +2334,7 @@
       gonderildiIsaretle(paket.kid || kidOku(paket.metin));
       if (r.adimlar && is && is.ie === paket.ie) {
         sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+        if (r.sira !== undefined) { sunucu.sira = r.sira || null; siraUygula(); }
         sunucu.kidliMi = true; sunucu.iyiliMi = true;
         setTimeout(yenidenCiz, 0);
       }
@@ -2398,6 +2496,8 @@
   function isiYukle(veri, qrdanMi) {
     devralOnay = null;
     is = veri; ornekMi = !qrdanMi;
+    is.aQR = veri.a.slice();             // İP'deki (QR) sıra; yönetici değiştirirse is.a yeniden dizilir
+    sunucu.sira = null; tasinan = {};
     secili = null;
     $("#teyit").hidden = true; $("#cikti").hidden = true;
     $("#btn-ana").disabled = true; $("#btn-ana").textContent = "Adım seçin";
