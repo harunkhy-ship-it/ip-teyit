@@ -994,8 +994,13 @@
     if (/KALİTE KONTROL|BOYUTSAL/.test(n)) return "Boyutsal Kalite Kontrol Laboratuvarı";
     return alt;
   }
+  function kaliteciMi(g) { return !!g && g.rol === "Kaliteci"; }
   function altyapiEngeli(x) {
     var g = girisOku();
+    if (kaliteciMi(g) && x) {
+      return /ARA ÖLÇÜM/.test(altNorm(x[1])) ? null
+           : { kaliteci: true, yazi: "Kaliteci rolü yalnız Ara Ölçüm adımlarına kayıt girebilir." };
+    }
     if (!g || yoneticiMi(g) || !(g.altyapi || []).length || !x) return null;
     var etkin = etkinAltyapi(x[1], x[2]);
     if (!etkin || g.altyapi.map(altNorm).indexOf(altNorm(etkin)) >= 0) return null;
@@ -1010,7 +1015,7 @@
     $("#giris-durum").hidden = !g;
     if (g) {
       $("#giris-yazi").textContent = "Giriş: " + g.sicil + (g.ad ? " · " + g.ad : "") +
-                                     (yoneticiMi(g) ? " · " + (g.rol === "Master" ? "Master" : "Yönetici") : "") +
+                                     (yoneticiMi(g) ? " · " + (g.rol === "Master" ? "Master" : "Yönetici") : kaliteciMi(g) ? " · Kaliteci" : "") +
                                      " · " + saatYaz(g.bitis) + "'a kadar";
       $("#kase").value = g.sicil;
     } else {
@@ -1491,7 +1496,18 @@
     if (i <= 0) return null;
     var k = adimDurumlari();
     if (k[no]) return null;
-    var once = is.a[i - 1], od = k[once[0]];
+    // Ara ölçüm (alt adım) paralel: ana adımların sırasını tutmaz
+    var j = i - 1;
+    while (j >= 0 && altAdimMi(is.a[j][0])) j--;
+    if (j < 0) return null;
+    var once = is.a[j], od = k[once[0]];
+    var neden0 = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)" : "";
+    if (altAdimMi(no)) {
+      if (od && /^(BASLADI|SETUP|DURAKLADI)$/.test(od.durum)) return null;
+      return { once: once, anaBekle: true,
+               yazi: "Ara ölçüm, bağlı olduğu ana adım (" + gNo(once[0]) + " · " + once[1] + ") başlamışken açılır. " +
+                     "O adımın durumu «" + (od ? DURUM_AD[od.durum] : "Başlamadı") + "»." + neden0 };
+    }
     if (od && kapaliMi(od.durum)) return null;
     var neden = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)"
               : (sunucu.hal === "hata" && (!sunucu.zaman || Date.now() - sunucu.zaman > 90000))
@@ -1527,7 +1543,8 @@
     $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
     yoneticiGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
-                                      ? "Başka altyapının adımı" : mz ? "Önce malzeme onayı" : "Önceki adım kapanmadı")
+                                      ? (altyapiEngeli(secilenAdim(no)).kaliteci ? "Yalnız Ara Ölçüm" : "Başka altyapının adımı")
+                                      : mz ? "Önce malzeme onayı" : e.anaBekle ? "Ana adım başlamadı" : "Önceki adım kapanmadı")
                               : !g ? "Önce giriş yapın"
                               : bekleyenDevral ? "Önce devralın" : "Kaydet ve Gönder";
   }
@@ -1657,9 +1674,10 @@
     });
   }
 
-  function oncekiAdimNo(no) {
+  function oncekiAdimNo(no) {           // önceki ANA adım (ara ölçüm paralel)
     var i = is.a.findIndex(function (x) { return x[0] === no; });
-    return i > 0 ? is.a[i - 1][0] : "";
+    for (var j = i - 1; j >= 0; j--) if (!altAdimMi(is.a[j][0])) return is.a[j][0];
+    return "";
   }
   function sonraki(no) {
     var i = is.a.findIndex(function (x) { return x[0] === no; });
