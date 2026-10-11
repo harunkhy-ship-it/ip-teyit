@@ -149,6 +149,13 @@
   .malzeme-kutu b.soru{display:block; font-size:15px; margin-bottom:4px}
   .malzeme-kutu button{width:100%; margin-top:10px; min-height:46px; border-radius:9px; font:inherit; font-weight:600;
     border:1px solid var(--ok); background:var(--ok); color:#fff; cursor:pointer}
+  .mky-kart{border:1.5px solid var(--cizgi2); border-radius:var(--r); padding:12px; margin-top:12px; background:var(--yuzey)}
+  .mky-kart b.mky-baslik{display:block; font-size:14px; margin-bottom:8px}
+  .mky-kart.hatali{border-color:var(--hata); background:var(--hata-soft)}
+  .malzeme-kutu .mky-kart{margin:10px 0 0}
+  .malzeme-kutu .mky-kart .secim button{width:auto; margin-top:0; min-height:40px; font-weight:500;
+    background:var(--yuzey); color:inherit; border:1px solid var(--cizgi2)}
+  .malzeme-kutu .mky-kart .secim button[aria-pressed="true"]{background:var(--vurgu); border-color:var(--vurgu); color:var(--vurgu-ink); font-weight:600}
   .adim.iptal .ad{text-decoration:line-through; color:var(--silik)}
   .adim.iptal .no{color:var(--silik)}
   .adim.kilitli{opacity:.62}
@@ -201,7 +208,7 @@
     border:1px solid var(--cizgi); margin-bottom:12px;
   }
   .adim-durum span:last-child{font-size:12.5px; color:var(--ink2); flex:1 1 180px; line-height:1.35}
-  label.alan.hatali input{border-color:var(--hata); background:var(--hata-soft)}
+  label.alan.hatali input, label.alan.hatali select{border-color:var(--hata); background:var(--hata-soft)}
   .kural-uyari{
     margin:0 0 12px; padding:11px 12px; border-radius:var(--r);
     background:var(--hata-soft); color:var(--hata); border:1px solid var(--hata);
@@ -474,6 +481,34 @@
             <button type="button" data-deger="TAMAM" aria-pressed="true">Tamamlandı</button>
           </div>
         </label>
+        <label class="alan" id="dnk-alan" hidden>
+          <span class="etiket">Duraklama nedeni (zorunlu)</span>
+          <select id="dnk"><option value="">— Neden seçin —</option></select>
+        </label>
+        <label class="alan" id="dnka-alan" hidden>
+          <span class="etiket">Açıklama (zorunlu)</span>
+          <input type="text" id="dnka" maxlength="120" autocomplete="off" placeholder="Kısaca ne oldu?">
+        </label>
+        <div id="mky-yuva">
+          <div class="mky-kart" id="mky-kart" hidden>
+            <b class="mky-baslik" id="mky-baslik">Ham malzeme nereden verildi?</b>
+            <div class="secim" id="mky-secim">
+              <button type="button" data-deger="DEPO">Depo envanterinden</button>
+              <button type="button" data-deger="GENEL">Genel bekleyen alandan</button>
+            </div>
+            <div id="mky-depo" hidden>
+              <div class="ikili" style="margin-top:10px">
+                <label class="alan" style="margin:0"><span class="etiket">Lot / Seri no (zorunlu)</span>
+                  <input type="text" id="mky-lot" maxlength="60" autocomplete="off" placeholder="L-2026-114"></label>
+                <label class="alan" style="margin:0"><span class="etiket">Sertifika no</span>
+                  <input type="text" id="mky-srt" maxlength="60" autocomplete="off" placeholder="3.1 / 778"></label>
+              </div>
+            </div>
+            <p class="not" id="mky-genel" hidden>Genel bekleyen alandan verilen malzeme: <b>lot ve sertifika takibi olmayacak</b>;
+              kayıtta «takipsiz» olarak işaretlenir.</p>
+            <p class="not" id="mky-mevcut" hidden></p>
+          </div>
+        </div>
         <p class="not">Her durum <b>ayrı bir kayıttır</b>: «Başladı» / «Setup'ta» →
           gerekirse «Duraklatıldı» → «Tamamlandı». Setup süresi, «Setup'ta» kaydından
           bir sonraki kayda kadar geçen süredir ve kendiliğinden hesaplanır.</p>
@@ -484,7 +519,7 @@
                    placeholder="—" aria-required="true" readonly>
           </label>
           <label class="alan" style="margin:0">
-            <span class="etiket">Tezgah</span>
+            <span class="etiket" id="tezgah-etiket">Tezgah</span>
             <select id="tezgah"><option value="">Seçin</option></select>
             <small id="tezgah-not" class="not" style="margin:4px 0 0" hidden></small>
           </label>
@@ -1392,6 +1427,8 @@
     var i = is.a.findIndex(function (x) { return x[0] === secili[0]; });
     var l = malzemeAtlanabilir(i, adimDurumlari());
     if (!l) { kuraliGoster(secili[0]); return; }
+    var mh = mkyHatasi(!mkyKayitli());
+    if (mh) { $("#mky-kart").classList.add("hatali"); h.textContent = mh; h.hidden = false; return; }
     var rotali = !rotaGittiMi(is.ie);
     var adimlar = l.map(function (x, n) {
       var p = ["MUIF"];
@@ -1402,6 +1439,7 @@
         return y[0] + "~" + String(y[1] || "").replace(/[~;|]/g, " "); }).join(";"));
       ek("ADIM", x[0]); ek("AD", x[1]); ek("ALT", x[2]);
       ek("D", "ATLANDI"); ek("KASE", g.sicil); ek("MHAZIR", "E"); ek("SONRAKI", secili[0]);
+      if (n === 0) mkyEkle(ek);
       ek("T", new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }));
       return { adim_no: x[0], adim_ad: x[1], metin: p.join("|") };
     });
@@ -1541,6 +1579,7 @@
     var g = girisGoster(), dv = devralGoster(no);
     var bekleyenDevral = dv && devralOnay !== no;
     $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
+    mkyGoster();
     yoneticiGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
                                       ? (altyapiEngeli(secilenAdim(no)).kaliteci ? "Yalnız Ara Ölçüm" : "Başka altyapının adımı")
@@ -1703,6 +1742,9 @@
     $("#apa-ek").hidden = true;
     $("#sap-ek").hidden = true;
     $("#sapma-kart").classList.remove("sapma");
+    $("#dnk").value = ""; $("#dnka").value = "";
+    $("#dnk").parentNode.classList.remove("hatali"); $("#dnka").parentNode.classList.remove("hatali");
+    mkySec(""); $("#mky-lot").value = ""; $("#mky-srt").value = "";
     durum.durum = "TAMAM"; durum.fai = "BEKLIYOR"; durum.apa = "MEVCUT";
     [["#durum-secim", "TAMAM"], ["#fai-secim", "BEKLIYOR"], ["#apa-secim", "MEVCUT"]]
       .forEach(function (ç) {
@@ -1740,12 +1782,100 @@
     return d;
   }
 
+  /* Duraklama neden kodları — panoyla aynı liste; operatör kod ekleyemez, yalnız seçer. */
+  var DURUS_KODLARI = [
+    ["Malzeme", [["M01", "Hammadde / yarı mamul yok"], ["M02", "Hammadde hatalı / ölçü dışı"],
+                 ["M03", "Önceki operasyondan parça bekleniyor"]]],
+    ["Takım", [["T01", "Takım kırılması"], ["T02", "Takım aşınması / uç değişimi"],
+               ["T03", "Takım / tutucu yok — temin bekleniyor"], ["T04", "Takım ön ayar / ölçme bekleniyor"]]],
+    ["Bağlama / fikstür", [["F01", "Fikstür / aparat hazır değil"], ["F02", "Bağlama / sıfırlama sorunu"],
+                           ["F03", "Mengene / ayna / çene değişimi"]]],
+    ["Program / doküman", [["P01", "CNC programı yok / bekleniyor"], ["P02", "Program hatası / düzeltme"],
+                           ["P03", "Teknik resim / doküman eksik veya belirsiz"], ["P04", "Revizyon / mühendislik kararı bekleniyor"]]],
+    ["Tezgah arızası", [["A01", "İş mili arızası"], ["A02", "Eksen / servo / vidalı mil arızası"],
+                        ["A03", "Takım magazini / ATC arızası"], ["A04", "Hidrolik / pnömatik arıza"],
+                        ["A05", "Elektrik / elektronik / kumanda alarmı"], ["A06", "Soğutma sıvısı / talaş konveyörü arızası"],
+                        ["A07", "Çarpışma (crash)"]]],
+    ["Planlı bakım", [["B01", "Planlı periyodik bakım"], ["B02", "Kalibrasyon / hassasiyet ayarı"],
+                      ["B03", "Temizlik / talaş boşaltma"]]],
+    ["Kalite", [["K01", "Ara ölçüm / kalite kontrol bekleniyor"], ["K02", "İlk parça onayı bekleniyor"],
+                ["K03", "Ölçüm cihazı / CMM müsait değil"], ["K04", "Uygunsuzluk (sapma) kararı bekleniyor"]]],
+    ["Enerji / altyapı", [["E01", "Elektrik kesintisi"], ["E02", "Basınçlı hava yok"],
+                          ["E03", "Vinç / taşıma ekipmanı bekleniyor"]]],
+    ["Organizasyon", [["O01", "Operatör başka işe görevlendirildi"], ["O02", "Öncelik değişikliği — araya iş alındı"],
+                      ["O03", "Mesai / vardiya bitimi"], ["O04", "Eğitim / toplantı"], ["O05", "İSG durdurması"]]],
+    ["Diğer", [["X99", "Diğer (açıklama yazın)"]]]
+  ];
+  (function () {
+    var sel = $("#dnk");
+    DURUS_KODLARI.forEach(function (g) {
+      var og = document.createElement("optgroup"); og.label = g[0];
+      g[1].forEach(function (k) {
+        var o = document.createElement("option"); o.value = k[0]; o.textContent = k[0] + " · " + k[1]; og.appendChild(o);
+      });
+      sel.appendChild(og);
+    });
+  })();
+  function dnkGoster() {
+    var dur = durum.durum === "DURAKLADI";
+    $("#dnk-alan").hidden = !dur;
+    $("#dnka-alan").hidden = !dur || $("#dnk").value !== "X99";
+  }
+  $("#dnk").addEventListener("change", function () { $("#dnk").parentNode.classList.remove("hatali"); dnkGoster(); });
+  $("#dnka").addEventListener("input", function () { $("#dnka").parentNode.classList.remove("hatali"); });
+
+  /* Ham malzeme kaynağı: malzeme adımlarında (1–3) ya da «Malzeme hazır» onayında sorulur;
+     iş emrinde bir kez girilmesi yeterli (sonra «kayıtlı» görünür, değiştiyse yeniden seçilir). */
+  var mkySecim = "";
+  function mkyKayitli() {
+    var a = sunucu.adimlar || {};
+    for (var n in a) if (a[n] && a[n].mky) return a[n].mky;
+    return "";
+  }
+  function mkySec(v) {
+    mkySecim = v;
+    Array.prototype.forEach.call($("#mky-secim").querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.deger === v ? "true" : "false");
+    });
+    $("#mky-depo").hidden = v !== "DEPO";
+    $("#mky-genel").hidden = v !== "GENEL";
+    $("#mky-kart").classList.remove("hatali");
+  }
+  $("#mky-secim").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-deger]");
+    if (b) mkySec(mkySecim === b.dataset.deger ? "" : b.dataset.deger);
+  });
+  $("#mky-lot").addEventListener("input", function () { $("#mky-kart").classList.remove("hatali"); });
+  function mkyGoster() {
+    var kart = $("#mky-kart"), kutu = $("#malzeme-kutu"), kutuda = !kutu.hidden;
+    var malz = !!secili && malzemeAdimiMi(secili[1]);
+    if (kutuda) { if (kart.parentNode !== kutu) kutu.insertBefore(kart, $("#malzeme-evet")); }
+    else if (kart.parentNode !== $("#mky-yuva")) $("#mky-yuva").appendChild(kart);
+    kart.hidden = !(kutuda || malz);
+    var k = mkyKayitli();
+    $("#mky-baslik").textContent = "Ham malzeme nereden verildi?" + (k ? "" : " (zorunlu)");
+    $("#mky-mevcut").hidden = !k;
+    $("#mky-mevcut").textContent = k ? "Bu iş emrinde kayıtlı: " + (k === "DEPO" ? "depo envanteri (lot / seri no ile)" :
+      "genel bekleyen alan (takipsiz)") + ". Değiştiyse yeniden seçin; değişmediyse boş bırakın." : "";
+  }
+  function mkyHatasi(zorunlu) {
+    if (!mkySecim) return zorunlu ? "Ham malzemenin nereden verildiğini seçin: depo envanteri (lot / seri no) ya da genel bekleyen alan." : "";
+    if (mkySecim === "DEPO" && !$("#mky-lot").value.trim()) return "Depodan verilen malzemenin lot / seri numarasını yazın.";
+    return "";
+  }
+  function mkyEkle(ek) {
+    if (!mkySecim) return;
+    ek("MKY", mkySecim);
+    if (mkySecim === "DEPO") { ek("LOT", $("#mky-lot").value.trim()); ek("SRT", $("#mky-srt").value.trim()); }
+  }
+
   /* Durumu hem nesneye hem düğmelere işler. */
   function durumUygula(deger) {
     durum.durum = deger;
     Array.prototype.forEach.call($("#durum-secim").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", b.dataset.deger === deger ? "true" : "false");
     });
+    dnkGoster();
     adetGorunurlugu();
   }
 
@@ -1756,6 +1886,7 @@
        Tamamlandı   → bitiş saati + süreler + sonraki adıma devir */
   function adetGorunurlugu() {
     var d = durum.durum;
+    dnkGoster();
     var basladi = acilisMi(d), tamam = d === "TAMAM";
     $("#bit-alan").hidden = basladi;
     $("#fm-alan").hidden = false; fmGoster();
@@ -2122,12 +2253,28 @@
     $(id).addEventListener("change", sureOzeti);
   });
 
-  /* Tezgah: listeden seçilir. Adım adında tezgah varsa ("… (DMU 60)") doğrudan yazılır. */
+  /* Tezgah: listeden seçilir. İP'deki tezgah («… (DMU 60)») yalnız ÖNERİDİR — plan değişebildiği için
+     tezgahlı adımlarda operatör işi yaptığı tezgahı kendisi seçer (zorunlu). Adım başlamışsa
+     son girilen tezgah hazır gelir. */
   var TEZGAH_YEDEK = ["VC 750", "MVC 1100", "DMU 60", "DMU 95", "NTX 2500", "UNIVERSAL TORNA", "TC 65",
     "SCHAUBLIN 642-Y", "TC 110L", "ROBOFIL 440", "CUT P 550 PRO", "KOMPAK 1 50A", "MANUEL İŞLEMLER", "UZAY 540"];
   function tezNorm(t) { return String(t || "").toLocaleUpperCase("tr-TR").replace(/[^0-9A-ZÇĞİÖŞÜ]/g, ""); }
+  function tezgahListesi() {
+    var g = girisOku();
+    return (g && g.tezgahlar && g.tezgahlar.length) ? g.tezgahlar : TEZGAH_YEDEK;
+  }
+  function ipTezgahi(x) {
+    var m = /\(([^()]+)\)\s*$/.exec((x && x[1]) || ""), adda = null;
+    if (m) tezgahListesi().forEach(function (t) { if (tezNorm(t) === tezNorm(m[1])) adda = t; });
+    return adda;
+  }
+  function tezgahGerekli(x) {          // sunucudaki tezgahGerekli_ ile aynı kural
+    if (!x || altNorm(x[2]) === "DSB") return false;
+    return !!ipTezgahi(x) || /TALAŞLI|KESİM|TESVİYE|KILAVUZ|YAY ATAŞMAN/.test(altNorm(x[1]));
+  }
+  function tezgahAlani() { return $("#tezgah").parentNode; }
   function tezgahDoldur(x) {
-    var g = girisOku(), liste = (g && g.tezgahlar && g.tezgahlar.length) ? g.tezgahlar : TEZGAH_YEDEK;
+    var liste = tezgahListesi();
     var sel = $("#tezgah");
     sel.textContent = "";
     var bos = document.createElement("option"); bos.value = ""; bos.textContent = "Seçin";
@@ -2135,12 +2282,21 @@
     liste.forEach(function (t) {
       var o = document.createElement("option"); o.value = t; o.textContent = t; sel.appendChild(o);
     });
-    var m = /\(([^()]+)\)\s*$/.exec(x[1] || ""), adda = null;
-    if (m) liste.forEach(function (t) { if (tezNorm(t) === tezNorm(m[1])) adda = t; });
-    sel.value = adda || "";
-    sel.disabled = false;                  // İP'deki tezgah öneri olarak gelir; işi yapan değiştirebilir
-    $("#tezgah-not").hidden = !adda;
-    $("#tezgah-not").textContent = adda ? "İP'deki tezgah: " + adda + " — işi başka tezgahta yaptıysanız değiştirin." : "";
+    var adda = ipTezgahi(x), gerek = tezgahGerekli(x);
+    if (adda) [].forEach.call(sel.options, function (o) { if (o.value === adda) o.textContent = adda + " (İP önerisi)"; });
+    // Adım başlamışsa son girilen tezgah gelir; başlamamışsa operatör seçer
+    var u = adimDurumlari()[x[0]], son = u && sunucu.adimlar[x[0]] && sunucu.adimlar[x[0]].tezgah;
+    var sonL = null;
+    if (son) liste.forEach(function (t) { if (tezNorm(t) === tezNorm(son)) sonL = t; });
+    sel.value = sonL || "";
+    sel.disabled = false;
+    tezgahAlani().classList.remove("hatali");
+    $("#tezgah-etiket").textContent = gerek ? "Tezgah (zorunlu)" : "Tezgah";
+    var not = sonL ? "Bu adımda son girilen tezgah: " + sonL + ". Değiştiyse yeniden seçin."
+            : adda ? "İP önerisi: " + adda + ". İşe başladığınız tezgahı seçin."
+            : gerek ? "İşe başladığınız tezgahı seçin." : "";
+    $("#tezgah-not").hidden = !not;
+    $("#tezgah-not").textContent = not;
   }
 
   function adimSec(x) {
@@ -2265,6 +2421,11 @@
     var dvs = secili && devralOnay === secili[0] ? devralGerekli(secili[0]) : null;
     if (dvs) ek("DEVRAL", dvs.kimde);
     ek("TZG", $("#tezgah").value.trim());
+    if (durum.durum === "DURAKLADI") {
+      ek("DNK", $("#dnk").value);
+      if ($("#dnk").value === "X99") ek("DNKA", $("#dnka").value.trim());
+    }
+    if (!$("#mky-kart").hidden) mkyEkle(ek);
     var sh = sonSure = sureHesabi();
     ek("BAS", sh.basZ != null ? tarihSaat(sh.basZ) : $("#bas-saat").value);
     if (!acilisMi(durum.durum)) {              // iş yeni açıldıysa bitiş/süre olmaz
@@ -2314,6 +2475,7 @@
   }
 
   function kaseAlani() { return $("#kase").parentNode; }
+  $("#tezgah").addEventListener("change", function () { tezgahAlani().classList.remove("hatali"); });
   $("#kase").addEventListener("input", function () {
     kaseAlani().classList.remove("hatali");
   });
@@ -2340,6 +2502,28 @@
       hata("Devralırken durum «Başladı» ya da «Setup'ta» olmalı."); return;
     }
     kaseAlani().classList.remove("hatali");
+    if (durum.durum === "DURAKLADI") {
+      if (!$("#dnk").value) {
+        $("#dnk").parentNode.classList.add("hatali"); $("#dnk").parentNode.scrollIntoView({ behavior: "smooth", block: "center" });
+        hata("Duraklama nedenini listeden seçin."); return;
+      }
+      if ($("#dnk").value === "X99" && !$("#dnka").value.trim()) {
+        $("#dnka").parentNode.classList.add("hatali"); hata("«Diğer» için kısa açıklama yazın."); return;
+      }
+    }
+    if (!$("#mky-kart").hidden) {
+      var mh = mkyHatasi(durum.durum === "TAMAM" && !mkyKayitli());
+      if (mh) {
+        $("#mky-kart").classList.add("hatali"); $("#mky-kart").scrollIntoView({ behavior: "smooth", block: "center" });
+        hata(mh); return;
+      }
+    }
+    if (tezgahGerekli(secili) && !$("#tezgah").value) {
+      tezgahAlani().classList.add("hatali");
+      tezgahAlani().scrollIntoView({ behavior: "smooth", block: "center" });
+      hata("Tezgah seçin: işi yaptığınız tezgahı listeden seçmek zorunludur (İP'deki tezgah yalnız öneridir).");
+      return;
+    }
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
       hata("Sapma isteği için açıklama zorunlu."); return;
     }
