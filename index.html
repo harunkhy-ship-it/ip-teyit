@@ -368,6 +368,39 @@
   }
   ul{list-style:none; padding:0; margin:0}
   @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+
+  /* ---------- saha asistanı (bağlantısız; formu kilitlemez) ---------- */
+  .as-dugme{position:fixed; right:12px; bottom:calc(84px + env(safe-area-inset-bottom, 0px)); z-index:31;
+    width:44px; height:44px; border-radius:50%; border:1px solid var(--cizgi); background:var(--yuzey); color:var(--vurgu);
+    font:700 20px/1 Archivo, system-ui, sans-serif; box-shadow:0 4px 14px rgba(0,0,0,.14); cursor:pointer; opacity:.92}
+  #asistan{position:fixed; inset:0; z-index:40; background:rgba(10,18,24,.45); display:flex; justify-content:center; align-items:flex-end}
+  #asistan .as-panel{width:100%; max-width:560px; height:min(88vh,760px); background:var(--yuzey); color:var(--ink);
+    border-radius:18px 18px 0 0; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 -10px 30px rgba(0,0,0,.25)}
+  #asistan .as-ust{display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--cizgi)}
+  #asistan .as-ust b{flex:1; font:700 17px Archivo, system-ui, sans-serif}
+  #asistan .as-ust small{display:block; font:500 11.5px/1.3 inherit; color:var(--silik)}
+  #asistan .as-ust button{border:1px solid var(--cizgi); background:var(--yuzey2); border-radius:10px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; color:var(--ink)}
+  #as-sohbet{flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px; overscroll-behavior:contain}
+  #asistan .m{max-width:94%; border-radius:14px; padding:9px 12px; font-size:14.5px; line-height:1.5}
+  #asistan .m.ben{align-self:flex-end; background:var(--vurgu); color:var(--vurgu-ink); border-bottom-right-radius:4px}
+  #asistan .m.o{align-self:flex-start; background:var(--yuzey2); border:1px solid var(--cizgi); border-bottom-left-radius:4px}
+  #asistan .m.o h3{font:700 15px Archivo, system-ui, sans-serif; margin:0 0 4px}
+  #asistan .m.o p{margin:0 0 6px}
+  #asistan .m.o ol{margin:4px 0 6px; padding-left:20px}
+  #asistan .m.o li{margin:3px 0}
+  #asistan .ui{font-weight:600; background:var(--yuzey); border:1px solid var(--cizgi); border-radius:6px; padding:0 5px}
+  #asistan .not{display:flex; gap:8px; background:var(--uyari-soft, #FBEFD9); color:var(--ink); border-radius:10px; padding:7px 10px; font-size:13.5px; margin:6px 0 0}
+  #asistan .not b{color:var(--uyari)}
+  #asistan .ipuc{background:var(--vurgu-soft); border-radius:10px; padding:7px 10px; font-size:13.5px; margin-top:6px}
+  #asistan .anl{font-size:11.5px; color:var(--vurgu); font-weight:600; margin-bottom:4px}
+  #asistan .cipler{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
+  #asistan .cipler button{border:1px solid var(--cizgi); background:var(--yuzey); border-radius:20px; padding:5px 11px; font:inherit; font-size:13px; color:var(--ink); text-align:left; cursor:pointer}
+  #asistan .cipler.konu button{font-weight:600}
+  #asistan .etiket{display:block; font-size:11.5px; font-weight:600; color:var(--silik); margin-top:8px}
+  #asistan .guven{font-size:11.5px; color:var(--silik); margin-top:6px}
+  #as-yaz{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--cizgi)}
+  #as-yaz input{flex:1; min-width:0; height:44px; border-radius:12px; border:1px solid var(--cizgi); background:var(--yuzey2); color:var(--ink); padding:0 12px; font:inherit; font-size:16px}
+  #as-yaz button{height:44px; border-radius:12px; border:0; background:var(--vurgu); color:var(--vurgu-ink); font:inherit; font-weight:600; padding:0 16px; cursor:pointer}
 </style>
 </head>
 <body>
@@ -2925,6 +2958,418 @@
   var qrdan = yukuCoz(decodeURIComponent(location.hash || "")) ||
               yukuCoz(decodeURIComponent(location.search || ""));
   isiYukle(qrdan || ORNEK, !!qrdan);
+})();
+</script>
+
+<button type="button" class="as-dugme" id="as-ac" aria-controls="asistan" aria-expanded="false" aria-label="Saha Asistanı" title="Saha Asistanı">?</button>
+<div id="asistan" hidden>
+  <section class="as-panel" role="dialog" aria-label="Saha Asistanı">
+    <div class="as-ust"><b>Saha Asistanı<small>Kılavuz v12 · bağlantısız · kayıt girmez</small></b><button type="button" id="as-kapat">Kapat</button></div>
+    <div id="as-sohbet" aria-live="polite"></div>
+    <form id="as-yaz" autocomplete="off"><input id="as-girdi" placeholder="Sorunu yaz: ör. iş devri" aria-label="Soru"><button type="submit">Sor</button></form>
+  </section>
+</div>
+<script>
+
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+
+/* ======================= BİLGİ TABANI (kılavuz v12) =======================
+   k: konu · r: roller (bos = herkes) · s: soru kalıpları · a: anahtar kelimeler
+   y: kısa yanıt · d: adımlar · n: uyarı · i: ipucu · b: ilgili konular            */
+const KB = [
+ {id:"kurulum",k:"Giriş",s:["Authenticator nasıl kurulur","kod uygulaması kurulumu","kurulum QR'ı"],a:["authenticator","kurulum","kur","uygulama","google authenticator","microsoft authenticator","qr kodu tara"],
+  y:"Giriş kodu için telefona bir kez Authenticator uygulaması kurulur.",
+  d:["Telefonuna <span class=ui>Google Authenticator</span> ya da <span class=ui>Microsoft Authenticator</span> yükle.","Planlama sorumlusu panodan sana özel <b>Kurulum QR</b>'ını açar.","Uygulamada <span class=ui>+</span> → <span class=ui>QR kodu tara</span> deyip okut.","Listede <b>İP Saha (sicil no)</b> satırı çıkar; 6 haneli kod 30 saniyede bir değişir."],
+  n:"Kurulum QR'ının ekran görüntüsünü alma, kimseyle paylaşma.",i:"Telefonun saati otomatik ayarda olmalı; yoksa kod tutmaz.",b:["giris","kod-tutmuyor","telefon-degisti"]},
+ {id:"giris",k:"Giriş",s:["Nasıl giriş yaparım","sisteme nasıl girerim","giriş ekranı"],a:["giris","giriş yap","oturum","sicil","6 haneli","kod","sifre"],
+  y:"QR'ı okutunca açılan ekranda sicil numaran ve Authenticator'daki 6 haneli kodla girersin.",
+  d:["İş Planı'ndaki QR'ı telefon kamerasıyla okut, çıkan bağlantıya dokun.","<span class=ui>Sicil No</span> kutusuna sicilini yaz.","Authenticator'daki 6 haneli kodu yaz, <span class=ui>Giriş yap</span>'a dokun.","Üstte «Giriş: sicil · ad · 17:30'a kadar» yazar ve rota açılır."],
+  b:["giris-suresi","kod-tutmuyor","qr-nerede"]},
+ {id:"kod-tutmuyor",k:"Giriş",s:["Kod hatalı diyor","kod tutmuyor","giriş kilitlendi","yanlış kod"],a:["kod","hatali","tutmuyor","kilit","kilitlendi","yanlis","olmuyor","girmiyor","sifre"],
+  y:"Kod 30 saniyede bir yenilenir; süresi dolmak üzere olan kod reddedilebilir.",
+  d:["Authenticator'da yeni kodun çıkmasını bekle, yeni kodu yaz.","Doğru satırı kullandığından emin ol: <b>İP Saha (kendi sicilin)</b>.","Telefonun saatinin <b>otomatik</b> ayarda olduğunu kontrol et."],
+  n:"5 kez yanlış kod girilirse giriş 5 dakika kilitlenir; 5 dakika sonra tekrar dene.",i:"Hâlâ olmuyorsa planlamaya söyle; kurulumun yenilenmesi gerekebilir.",b:["kurulum","telefon-degisti"]},
+ {id:"giris-suresi",k:"Giriş",s:["Neden tekrar kod soruyor","giriş ne kadar geçerli","kod her seferinde soruluyor mu"],a:["tekrar","yeniden","her seferinde","sure","gecerli","ne zamana kadar","oturum suresi"],
+  y:"Kod her <b>yeni iş emrinde</b> bir kez sorulur; aynı iş emrinde vardiya sonuna kadar tekrar sorulmaz.",
+  d:["Normal mesaide giriş <b>17:30</b>'a kadar geçerlidir.","Fazla mesaide <b>21:00</b>'a kadar geçerlidir.","Süre dolunca yeni kayıt için yeniden kod istenir."],
+  i:"Bağlantısızken girilip bekleyen kayıt, yeniden giriş yapınca gönderilir.",b:["giris","baglanti-yok"]},
+ {id:"telefon-degisti",k:"Giriş",s:["Telefonum değişti","telefonumu kaybettim","yeni telefon aldım"],a:["telefon","degisti","kayip","kaybettim","yeni telefon","calindi","bozuldu"],
+  y:"Planlamaya haber ver; eski kodun iptal edilip sana yeni bir Kurulum QR'ı verilir.",
+  d:["Planlama sorumlusuna telefonun değiştiğini ya da kaybolduğunu söyle.","Panodan eski kodun iptal edilir ve yeni Kurulum QR'ı açılır.","Yeni telefonda Authenticator'a bu QR'ı okut."],
+  n:"Kaybolan telefonla kimse senin adına kayıt girmesin diye bunu hemen bildir.",b:["kurulum","guvenlik"]},
+ {id:"cikis",k:"Giriş",s:["Nasıl çıkış yaparım","telefonu başkasına vereceğim"],a:["cikis","cikis yap","oturumu kapat","baskasina ver","telefonu ver"],
+  y:"İş bitince ya da telefonu başkasına vereceksen sayfadaki <span class=ui>Çıkış</span>'a dokun.",
+  i:"Çıkış yapmazsan aynı telefondan girilen kayıt senin adına yazılır.",b:["guvenlik","kimin-adina"]},
+ {id:"qr-nerede",k:"QR",s:["QR nerede","QR'ı nereden okutacağım","karekod nerede"],a:["qr","karekod","nerede","is plani","ip","okut"],
+  y:"QR'lı İş Planı'nda aynı QR iki yerde bulunur.",
+  d:["<b>1. sayfada</b>: «Özel Proses» kutusunun sağında.","<b>Rota kartında</b>: AÇIKLAMALAR alanının sağında."],
+  i:"Kamerayı QR'a tut, çıkan bağlantıya dokun.",b:["qr-okunmuyor","kase"]},
+ {id:"qr-okunmuyor",k:"QR",s:["QR okunmuyor","kamera QR'ı görmüyor","bağlantı açılmıyor"],a:["okunmuyor","okumuyor","kamera","gormuyor","acilmiyor","baglanti acilmiyor","qr"],
+  y:"Kamerayı QR'a düz ve yakın tut; ışık yansımasını önle.",
+  d:["Telefonun kamera uygulamasını aç, QR'ı ekranın ortasına al.","Çıkan bağlantıya (bildirime) dokun.","Okumuyorsa kâğıdın buruşuk ya da ıslak olmadığına bak; diğer QR'ı (rota kartındaki) dene."],
+  i:"İkisi de okunmuyorsa İP'nin yeniden basılması için planlamaya söyle.",b:["qr-nerede"]},
+ {id:"kase",k:"QR",s:["Kâğıda kaşe basmaya devam edecek miyim","ONAY KAŞE sütunu"],a:["kase","kaşe","onay","kagit","imza","muhur"],
+  y:"Evet. Kâğıttaki <b>ONAY / KAŞE</b> sütununa kaşe basma uygulaması aynen sürer.",b:["qr-nerede"]},
+ {id:"durumlar",k:"Adım",s:["Başladı Setup Duraklatıldı Tamamlandı ne demek","durumlar ne anlama geliyor","hangi durumu seçmeliyim"],a:["durum","basladi","setup","duraklatildi","tamamlandi","secmeliyim","anlami","ne demek"],
+  y:"Her durum ayrı bir kayıttır.",
+  d:["<b>Başladı</b>: işe başladım, üretim sürüyor.","<b>Setup'ta</b>: tezgah hazırlığı yapıyorum.","<b>Duraklatıldı</b>: ara verdim (neden seçilir).","<b>Tamamlandı</b>: adım bitti, sıradaki adıma devir."],
+  b:["kayit-sirasi","setup","durus-neden"]},
+ {id:"kayit-sirasi",k:"Adım",s:["Bir adım için hangi sırayla kayıt girerim","kayıt sırası nasıl"],a:["sira","sirayla","hangi sira","kayit sirasi","once","sonra"],
+  y:"Bir adım için kayıtlar sırayla girilir.",
+  d:["İşe başlarken <span class=ui>Başladı</span> (setup varsa önce <span class=ui>Setup'ta</span>).","Ara verirsen <span class=ui>Duraklatıldı</span>, dönünce yine <span class=ui>Başladı</span>.","Adım bitince <span class=ui>Tamamlandı</span>."],
+  i:"Kaydı işi yaparken gir; sonradan toplu girilen kayıtlar süreleri bozar.",b:["durumlar","setup","sonradan-giris"]},
+ {id:"setup",k:"Adım",s:["Setup nasıl girilir","setup süresi","tezgah hazırlığı"],a:["setup","hazirlik","ayar","baglama","kurulum suresi"],
+  y:"Setup yaparken önce <span class=ui>Setup'ta</span>, setup bitince <span class=ui>Başladı</span> girersin.",
+  d:["Hazırlığa başlarken durumu <span class=ui>Setup'ta</span> seç, gönder.","Setup bitip üretime geçince <span class=ui>Başladı</span> gönder."],
+  i:"Setup süresi «Setup'ta» kaydından bir sonraki kayda kadar geçen süredir; kendiliğinden hesaplanır.",b:["durumlar","kayit-sirasi"]},
+ {id:"kilitli-adim",k:"Adım",s:["Adım kilitli neden","kilit işareti var","adıma kayıt giremiyorum başka altyapı"],a:["kilit","kilitli","baska altyapi","giremiyorum","acilmiyor","yetki"],r:["operator"],
+  y:"🔒 işaretli adım başka bir altyapıya aittir; kaydı o altyapının operatörü ya da yönetici girer.",
+  d:["Örnek kilitli adımlar: Kalite Kontrol, Tahribatsız, iç Isıl İşlem.","Öncesi / Sonrası Kontrol, Sevk, Kaplama ve Ara Ölçüm herkese açıktır."],
+  i:"Kendi altyapında olması gerekiyorsa planlamaya söyle; rol ve altyapı panodan ayarlanır.",b:["sira-kurali","rol"]},
+ {id:"sira-kurali",k:"Adım",s:["Önceki adım kapanmadı diyor","bu adıma kayıt açılamaz","sıra kuralı"],a:["onceki adim","kapanmadi","acilamaz","sira kurali","once bitmeli","sirada"],
+  y:"Önceki adım <b>Tamamlandı</b> (ya da yöneticice İptal) olmadan sonraki adıma kayıt açılmaz.",
+  d:["Önceki adımı kimin yaptığını kontrol et; o adım «Tamamlandı» girilmeli.","Başka telefondan kapatıldıysa birkaç saniye sonra <span class=ui>Durumu yenile</span>'ye dokun."],
+  i:"Ara ölçüm (4.1) sırayı tutmaz; 5. adım ara ölçümün bitmesini beklemez.",b:["durumu-yenile","malzeme-hazir","ara-olcum-paralel"]},
+ {id:"durumu-yenile",k:"Adım",s:["Başka telefondan kapattık ama görünmüyor","durum güncellenmiyor","durumu yenile"],a:["yenile","guncellenmiyor","gorunmuyor","baska telefon","eski durum","durumu yenile"],
+  y:"Sayfa ortak durumu 30 saniyede bir okur; beklemeden görmek için <span class=ui>Durumu yenile</span>'ye dokun.",b:["sira-kurali","devral"]},
+ {id:"iptal-adim",k:"Adım",s:["Adımın üstü çizili","adım iptal edilmiş","iptal edilen adım"],a:["ustu cizili","iptal","iptal edildi","cizili"],
+  y:"Üstü çizili adımı yönetici iptal etmiştir; o adıma kayıt girilemez ve sıra kuralında kapalı sayılır.",
+  i:"Yanlışlıkla iptal edildiyse yönetici «İptali kaldır» ile geri açar.",b:["yonetici-iptal"]},
+ {id:"sira-degisti",k:"Adım",s:["Sıra değişti yazıyor","İP'de 4.1 notu ne","adım numarası farklı"],a:["sira degisti","ip de","numara farkli","5.1","4.1","yer degisti"],
+  y:"Yönetici rotanın sırasını değiştirdiyse telefondaki sıra geçerlidir; kâğıttaki İP eski sırada kalır.",
+  d:["Değişen adımda «↕ sıra değişti» görünür.","Ara ölçüm başka bir adımın altına taşındıysa yeni numarasıyla görünür (ör. 5.1) ve «İP'de 4.1» notu kâğıttaki numarayı gösterir."],
+  b:["yonetici-sira","ara-olcum-paralel"]},
+ {id:"tezgah-zorunlu",k:"Tezgah",s:["Tezgah neden zorunlu","tezgahı nasıl seçerim","tezgah seçmeden gönderemiyorum"],a:["tezgah","makine","zorunlu","sec","secim","tezgah sec","ip onerisi"],
+  y:"Plan değişebildiği için işi yaptığın tezgahı her kayıtta <b>sen seçersin</b>.",
+  d:["<span class=ui>Tezgah (zorunlu)</span> listesinden işi yaptığın tezgahı seç.","İP'deki tezgah yalnız <b>öneridir</b> («İP önerisi: DMU 60») ve kendiliğinden seçilmez.","Adım başlamışsa son girilen tezgah hazır gelir; değiştiyse yeniden seç."],
+  n:"Tezgah seçmeden kayıt gönderilmez; alan kırmızı olur.",i:"Malzeme, kontrol, sevk gibi tezgahsız adımlarda tezgah sorulmaz.",b:["tezgah-listede-yok","tezgah-degisti"]},
+ {id:"tezgah-listede-yok",k:"Tezgah",s:["Tezgahım listede yok","makinem listede görünmüyor"],a:["listede yok","bulamiyorum","yok","eksik","yeni tezgah","gorunmuyor"],
+  y:"Tezgah listesini planlama yönetir; listede olmayan tezgahı planlamaya bildir.",
+  b:["tezgah-zorunlu"]},
+ {id:"tezgah-degisti",k:"Tezgah",s:["İş başka tezgaha geçti","tezgah değiştirdim"],a:["tezgah degisti","baska tezgah","tasindi","degistirdim","farkli tezgah"],
+  y:"Bir sonraki kayıtta tezgah listesinden yeni tezgahı seç; o kayıttan itibaren yeni tezgah geçerli olur.",
+  i:"Pano tezgah kaydını analizlere dahil eder; İP'dekinden farklı tezgah seçmek hata değildir.",b:["tezgah-zorunlu"]},
+ {id:"devral",k:"Devral",s:["Başkasının açık adımına nasıl devam ederim","devral nedir","adım başkasında açık"],a:["devral","baskasi","baskasinda","acik","devam","vardiya devri","arkadasimin"],
+  y:"Aynı adımda aynı anda iki kişi çalışamaz; adım başkasında açıksa <b>Devral</b> kullanırsın.",
+  d:["Adımı seç; üstte turuncu kutu çıkar: «Bu adım şu an … sicilinde açık».","<span class=ui>Devral</span>'a dokun.","Durumu <span class=ui>Başladı</span> (ya da Setup'ta) seçip gönder."],
+  i:"Önceki kişinin süresi o anda kapanır, süre senden devam eder.",n:"Devralmadan kayıt gönderilemez.",b:["devral-adet","adet-girisi"]},
+ {id:"devral-adet",k:"Devral",s:["Devralınca adet nasıl girilir","önceki kişinin ürettiği"],a:["devral","adet","onceki kisi","toplam","uretti"],
+  y:"Önceki kişinin ürettiği adetler toplamda kalır; sen yalnız <b>kendi ürettiğini</b> yazarsın.",
+  d:["İş bitince adımı devralan kişi olarak <span class=ui>Tamamlandı</span> gir.","<span class=ui>İyi (bu kayıt)</span> kutusuna yalnız senin ürettiğini yaz."],b:["adet-girisi","devral"]},
+ {id:"adet-girisi",k:"Adet",s:["Adet nasıl girilir","iyi adet kutusu","üretilen adedi nereye yazacağım"],a:["adet","iyi","uretilen","kac tane","miktar","parca"],
+  y:"<span class=ui>İyi (bu kayıt)</span> kutusuna yalnız <b>bu kayıtta</b> ürettiğin parça sayısını yaz; toplamı sistem tutar.",
+  d:["Kutunun altında «Bu adımda üretilen: 4 / 10 · Kalan: 6» görünür.","Yazdıkça «Bu kayıtla: 7 / 10 · Kalan: 3» olarak güncellenir."],
+  n:"Toplamı yazma; herkesin girdiği adetler toplanır.",b:["plan-asildi","otomatik-tamam","hurda"]},
+ {id:"plan-asildi",k:"Adet",s:["Plan aşıldı uyarısı","adet özeti kırmızı oldu","kalan varken tamamladım uyarı"],a:["plan asildi","kirmizi","fazla adet","kalan var","uyari","asim"],
+  y:"Girilen adet plan adedini aşarsa özet kırmızıya döner; kalan varken elle «Tamamlandı» seçersen de uyarı çıkar.",
+  d:["Yazdığın adedin bu kayıtta üretilen olduğunu kontrol et (toplam değil).","Gerçekten fazla üretildiyse kaydı gönder; planlama panoda görür."],b:["adet-girisi","otomatik-tamam"]},
+ {id:"otomatik-tamam",k:"Adet",s:["Durum kendiliğinden Tamamlandı oldu","son parçada tamamlandı seçildi"],a:["kendiliginden","otomatik","tamamlandi oldu","son parca","degisti"],
+  y:"Plan adedine ulaşınca durum kendiliğinden <b>Tamamlandı</b> olur.",i:"Adımı kapatmak istemiyorsan başka bir duruma (ör. Duraklatıldı) dokun.",b:["adet-girisi"]},
+ {id:"hurda",k:"Adet",s:["Hurda nasıl girilir","yeniden işlem","hatalı parça"],a:["hurda","hatali","yeniden islem","bozuk","fire","red","ret"],
+  y:"Hurdayı <span class=ui>Hurda</span>, tekrar işlenecek parçayı <span class=ui>Yeniden işlem</span> kutusuna yaz.",
+  d:["Hurda adedi girince <span class=ui>Hurda nedeni</span> listesi açılır.","Nedeni seç: Ölçü dışı, Yüzey hatası, Takım kırılması, Malzeme hatası, Program / kurulum hatası ya da Diğer."],
+  i:"Teknik resimden ayrılma ya da ölçü dışı ürün için ayrıca «Sapma İsteği» açılabilir.",b:["sapma","adet-girisi"]},
+ {id:"sapma",k:"Adet",s:["Sapma isteği nasıl açılır","uygunsuzluk bildirimi"],a:["sapma","uygunsuzluk","olcu disi","resimden farkli","malzeme farki"],
+  y:"Teknik resimden ayrılma, ölçü dışı ürün ya da malzeme farkı varsa <b>Sapma İsteği</b> açılır.",
+  d:["<span class=ui>Sapma / uygunsuzluk var</span> anahtarını aç.","<span class=ui>Açıklama</span> zorunludur: hangi ölçü, ne kadar, hangi parçalar.","Varsa etkilenen adet ve talep eden kaşeyi yaz."],b:["hurda"]},
+ {id:"saatler",k:"Saat",s:["Saat nasıl girilir","başlangıç saatini düzeltmek","bitiş saati"],a:["saat","baslangic","bitis","tarih","duzelt","simdi"],
+  y:"Tarih ve saat kendiliğinden gelir; gerekirse düğmelerle değiştirirsin.",
+  d:["«Başladı»da şimdiki saat gelir.","Kapatırken başlangıç ilk kaydından (devraldıysan devralma anından), bitiş şimdiden gelir.","<span class=ui>Şimdi</span> · <span class=ui>08:30</span> · <span class=ui>13:45</span> · <span class=ui>18:00</span> düğmeleriyle düzeltebilirsin."],
+  n:"Başlangıç ve bitiş saati şu andan ileri olamaz.",b:["mesai-saatleri","sonradan-giris"]},
+ {id:"mesai-saatleri",k:"Saat",s:["Süre hangi saatlerde sayılır","mola süreden düşer mi","mesai saatleri"],a:["mesai","mola","ogle","sayilir","dusulur","calisma saati"],
+  y:"Süre yalnız mesai içinde sayılır; molalar kendiliğinden düşülür.",
+  d:["Sabah <b>08:30–12:45</b> (10:00–10:20 mola).","Öğleden sonra <b>13:45–17:30</b>.","Fazla mesai <b>18:00–21:00</b>; Cumartesi ve Pazar tamamı fazla mesai."],b:["fm-haftaici","fm-haftasonu"]},
+ {id:"sonradan-giris",k:"Saat",s:["Kaydı sonradan girebilir miyim","unuttum sonra girdim","toplu kayıt"],a:["sonradan","unuttum","gec","toplu","sonra girdim","geriye donuk"],
+  y:"Kaydı işi yaparken gir. Unuttuysan saatleri gerçek zamana göre düzelterek gir.",
+  n:"Sonradan toplu girilen kayıtlar (aynı dakikada açılıp kapanan adımlar) süreleri bozar ve panoda ayrıca işaretlenir.",b:["saatler","baglanti-yok"]},
+ {id:"fm-haftaici",k:"Fazla mesai",s:["Hafta içi fazla mesai nasıl girilir","mesaiye kaldım","akşam çalıştım"],a:["fazla mesai","mesai","fm","kaldim","ek mesai","mesay"],
+  y:"Hafta içi mesaiye kaldığın gün, o gün girdiğin kayıtta fazla mesaiyi işaretlersin.",
+  d:["Kayıtta <span class=ui>Bugün fazla mesai yapıldı</span> kutusunu işaretle.","Çıkış saatini seç (19:00 · 20:00 · 21:00).","Fazla mesai 18:00'den çıkış saatine kadar sayılır."],
+  n:"Kutu kendiliğinden işaretlenmez.",b:["fm-haftasonu","fm-unuttum","mesai-saatleri"]},
+ {id:"fm-haftasonu",k:"Fazla mesai",s:["Hafta sonu çalışınca ne yapmalıyım","cumartesi çalıştım","pazar mesai"],a:["hafta sonu","cumartesi","pazar","haftasonu","tatil"],
+  y:"Hafta sonu gelince <span class=ui>Başladı</span> girmen yeterli; o günkü çalışma fazla mesai sayılır.",
+  i:"Molalar hafta içi gibi düşülür; ayrıca kutu işaretlemen gerekmez.",b:["fm-haftaici","mesai-saatleri"]},
+ {id:"fm-unuttum",k:"Fazla mesai",s:["Fazla mesai işaretlemeyi unuttum"],a:["unuttum","isaretlemedim","fazla mesai","eksik","sayilmadi"],
+  y:"Aynı gün içinde gireceğin bir sonraki kayıtta kutuyu işaretleyip çıkış saatini seç; o gün fazla mesaiye eklenir.",
+  i:"Gün geçtiyse planlamaya bildir.",b:["fm-haftaici"]},
+ {id:"durus-neden",k:"Duraklatma",s:["Duraklatırken hangi nedeni seçmeliyim","duraklama nedeni","neden listesi"],a:["duraklat","durdur","ara ver","neden","sebep","durus","bekleme"],
+  y:"«Duraklatıldı» seçince <span class=ui>Duraklama nedeni</span> listesi açılır; neden seçmeden kayıt gönderilmez.",
+  d:["<b>M</b> Malzeme — hammadde yok / hatalı, önceki operasyon","<b>T</b> Takım — kırılma, aşınma / uç, takım yok, ön ayar","<b>F</b> Bağlama — fikstür / aparat, sıfırlama, çene","<b>P</b> Program / doküman — CNC programı, resim, revizyon","<b>A</b> Tezgah arızası — iş mili, eksen, ATC, hidrolik, alarm, soğutma, çarpışma","<b>B</b> Planlı bakım — bakım, kalibrasyon, temizlik","<b>K</b> Kalite — ara ölçüm, ilk parça onayı, CMM, sapma kararı","<b>E</b> Enerji / altyapı — elektrik, hava, vinç","<b>O</b> Organizasyon — başka işe görev, öncelik, O03 mesai bitimi, eğitim, İSG","<b>X99</b> Diğer — açıklama zorunlu"],
+  n:"Listeye yeni neden yazılmaz; uygun olan yoksa X99 Diğer.",b:["durus-aksam","durus-ariza","durus-takim","durus-malzeme","durus-kalite","durus-organizasyon","durus-diger"]},
+ {id:"durus-aksam",k:"Duraklatma",s:["Akşam işi bırakırken ne seçmeliyim","mesai bitti iş yarım kaldı"],a:["aksam","aksam duraklat","mesai bitti","vardiya sonu","eve","birakirken","yarim kaldi","o03"],
+  y:"Akşam iş yarım kalıyorsa <span class=ui>Duraklatıldı</span> seçip nedeni <b>O03 · Mesai / vardiya bitimi</b> yap.",
+  i:"Ertesi gün işe dönünce «Başladı» gir; süre kaldığı yerden sayılır.",b:["durus-neden","kayit-sirasi"]},
+ {id:"durus-diger",k:"Duraklatma",s:["Neden listede yok","diğer seçeneği"],a:["diger","x99","listede yok","uygun yok","aciklama"],
+  y:"Uygun neden yoksa <b>X99 · Diğer</b> seç ve kısa bir açıklama yaz; açıklama zorunludur.",b:["durus-neden"]},
+ {id:"durus-ariza",k:"Duraklatma",s:["Tezgah arıza yaptı","makine bozuldu","arıza kodu"],a:["ariza","bozuldu","makine bozuk","alarm","is mili","eksen","carpisma","crash"],
+  y:"Tezgah arızasında <span class=ui>Duraklatıldı</span> seçip <b>A</b> ile başlayan uygun arıza kodunu seç.",
+  d:["A01 iş mili · A02 eksen / servo · A03 takım magazini","A04 hidrolik / pnömatik · A05 elektrik / kumanda alarmı","A06 soğutma / talaş konveyörü · A07 çarpışma"],
+  n:"A kodları tezgahın arıza istatistiğine (arıza sıklığı, onarım süresi) girer; doğru seçmek önemli.",b:["durus-neden"]},
+ {id:"malzeme-kaynak",k:"Malzeme",s:["Ham malzeme nereden verildi sorusu","lot numarası nereye yazılır","depo envanteri"],a:["malzeme","ham malzeme","lot","seri","sertifika","depo","envanter","genel alan","nereden"],
+  y:"Malzeme adımlarından biri (1–3: Malzeme Temini, Kesim, Etiketleme) <b>Tamamlandı</b> girilirken ya da «Malzeme hazır» onayında malzemenin nereden verildiği sorulur.",
+  d:["<b>Depo envanterinden</b>: lot / seri no zorunlu, sertifika no varsa yazılır.","<b>Genel bekleyen alandan</b>: lot ve sertifika takibi olmaz, kayıtta «takipsiz» işaretlenir."],
+  i:"İş emrinde bir kez girilir; sonraki adımlarda «kayıtlı» görünür.",b:["malzeme-hazir","lot-bilinmiyor","malzeme-degisti"]},
+ {id:"lot-bilinmiyor",k:"Malzeme",s:["Lot numarasını bilmiyorum","lot yazılı değil"],a:["lot","bilmiyorum","yazili degil","etiket","seri no","bulamadim"],
+  y:"Lot / seri no depo malzemesinin etiketindedir.",
+  d:["Malzemenin üzerindeki depo etiketine bak.","Depodan verilmediyse <b>Genel bekleyen alandan</b> seçeneğini seç.","Etiket yoksa planlamaya ya da depoya sor."],b:["malzeme-kaynak"]},
+ {id:"malzeme-hazir",k:"Malzeme",s:["Malzeme hazır geldi ne yapmalıyım","malzeme kesilmiş geldi","malzeme adımlarını atlamak"],a:["malzeme hazir","hazir geldi","kesilmis","atla","malzeme onayi"],
+  y:"1–3. malzeme adımlarına kayıt yokken kendi adımını seçersen «Malzeme hazır mı geldi?» sorulur.",
+  d:["Ham malzeme kaynağını seç (depo lot / genel alan).","<span class=ui>Evet, malzeme hazır geldi</span>'ye dokun.","Adımlar «Malzeme hazır» olarak kapanır, doğrudan kendi adımına geçersin."],
+  i:"Malzeme onayı bağlantı ister.",b:["malzeme-kaynak","sira-kurali"]},
+ {id:"gonderme",k:"Gönderme",s:["Kaydı nasıl gönderirim","gönderildi mi","kayıt gitti mi"],a:["gonder","kaydet","gonderildi","gitti mi","kaydet ve gonder"],
+  y:"<span class=ui>Kaydet ve Gönder</span>'e bas; «✓ Gönderildi — kayıt tabloya yazıldı» görünce iş tamamdır.",b:["baglanti-yok","yanlis-kayit"]},
+ {id:"baglanti-yok",k:"Gönderme",s:["İnternet yok kayıt ne olacak","bağlantı koptu","çekmiyor"],a:["internet","baglanti","cekmiyor","wifi","sinyal","cevrimdisi","koptu"],
+  y:"Bağlantı yoksa kayıt telefonda saklanır; internet gelince kendiliğinden gönderilir.",
+  i:"Giriş süren dolduysa yeniden giriş yapınca gönderilir. Yönetici işlemleri ve malzeme onayı bağlantı ister.",b:["gonderme","giris-suresi"]},
+ {id:"yanlis-kayit",k:"Gönderme",s:["Yanlış kayıt girdim","Yanlışlıkla Tamamlandı bastım","hatalı tamamlandı girdim","kaydı silmek"],a:["yanlis","hatali","sil","geri al","duzelt","yanlislikla"],
+  y:"Gönderilen kaydı operatör silemez; yöneticiye söyle, adımın <b>son kaydını geri alır</b>.",
+  i:"Geri alınan kayıt silinmez, geçersiz sayılır; adım bir önceki durumuna döner ve adet düşer. Sonra doğru kaydı yeniden girersin.",b:["yonetici-geri-al","gonderme"]},
+ {id:"kaliteci",k:"Kaliteci",r:["kaliteci"],s:["Kaliteci ne girebilir","kaliteci yetkisi"],a:["kaliteci","kalite","olcum","ara olcum","yetki"],
+  y:"Kaliteci rolü yalnız <b>Ara Ölçüm</b> adımlarına kayıt girer; diğer adımlar 🔒 görünür.",
+  i:"İptal, geri alma, malzeme onayı ve sıra değiştirme Kaliteci'ye kapalıdır.",b:["ara-olcum-acilmiyor","ara-olcum-paralel"]},
+ {id:"ara-olcum-acilmiyor",k:"Kaliteci",s:["Ara ölçüm açılmıyor","ana adım başlamadı diyor"],a:["ara olcum","acilmiyor","ana adim","baslamadi","olcum"],
+  y:"Ara ölçüm, bağlı olduğu ana adım (ör. 4.1 için 4) <b>başlamışken</b> açılır.",
+  d:["Ana adımın Başladı / Setup'ta / Duraklatıldı durumunda olduğunu kontrol et.","Başka telefondan başlatıldıysa <span class=ui>Durumu yenile</span>'ye dokun."],
+  i:"Başlamış ölçüm, ana adım kapandıktan sonra da tamamlanabilir. Yönetici ara ölçümü 5'in altına taşıdıysa ekranda 5.1 görünür ve 5. adım başlayınca açılır.",b:["ara-olcum-paralel","kaliteci","sira-degisti"]},
+ {id:"ara-olcum-paralel",k:"Kaliteci",s:["Ara ölçüm sonraki adımı bekletir mi","5. adım ölçümü bekliyor mu"],a:["ara olcum","bekletir","paralel","sonraki adim","bekler mi"],
+  y:"Hayır. Ara ölçüm paralel yürür; 5. adım ara ölçümün bitmesini beklemez.",b:["ara-olcum-acilmiyor","sira-degisti"]},
+ {id:"yonetici-iptal",k:"Yönetici",r:["yonetici"],s:["Adımı nasıl iptal ederim","iptali kaldırmak"],a:["iptal","adimi iptal","iptali kaldir","yapilmayacak"],
+  y:"Adımı seç; yönetici kutusunda <span class=ui>Adımı iptal et</span>, gerekçeyi yaz, <span class=ui>Onayla</span>.",
+  d:["İptal edilen adım üstü çizili görünür, kayıt girilemez, sıra kuralında kapalı sayılır; süre ve adet hesaplarına girmez.","Yanlış iptali <span class=ui>İptali kaldır</span> ile geri açarsın."],
+  n:"Gerekçe yazmak zorunludur.",b:["yonetici-gerekce","yonetici-geri-al"]},
+ {id:"yonetici-geri-al",k:"Yönetici",r:["yonetici"],s:["Son kaydı nasıl geri alırım","yanlış girilen kaydı geri al"],a:["geri al","son kayit","yanlis kayit","geri alma"],
+  y:"Adımı seç; yönetici kutusunda <span class=ui>Son kaydı geri al</span>, gerekçeyi yaz, onayla.",
+  d:["Adım bir önceki durumuna döner, o kayıttaki adet toplamdan düşer.","Yalnız adımın <b>en son</b> kaydı geri alınabilir; arada başkası kayıt girdiyse önce sayfayı yenile."],b:["yonetici-gerekce","yanlis-kayit"]},
+ {id:"yonetici-sira",k:"Yönetici",r:["yonetici"],s:["Rota sırasını nasıl değiştiririm","adımın yerini değiştirmek","sırayı düzenle"],a:["sira","yer degistir","surukle","sirayi duzenle","yukari","asagi","tasi"],
+  y:"Henüz kaydı olmayan adımın yerini ▲ / ▼ ile ya da <span class=ui>Sırayı düzenle</span> ile sürükleyerek değiştirirsin.",
+  d:["Proses bloğu birlikte taşınır; 4'ü taşırsan 4.1 onunla gider.","4.1'i seçersen tek başına taşınır (5'in altında 5.1 görünür).","<span class=ui>Sıra değişikliğini geri al</span> ile önceki sıraya dönersin."],
+  n:"Tamamlanmış ya da başlamış adımın yeri değiştirilemez.",b:["sira-degisti","yonetici-gerekce"]},
+ {id:"yonetici-gerekce",k:"Yönetici",r:["yonetici"],s:["Yönetici işlemleri kayıt siler mi","gerekçe zorunlu mu"],a:["gerekce","silinir mi","kayit silme","iz","log"],
+  y:"Hiçbir kayıt silinmez; her yönetici işlemi gerekçesi, sicili ve saatiyle ayrı satır olarak yazılır. İşlem «Onayla» ile gönderilir, «Vazgeç» ile bırakılır.",i:"Yönetici işlemleri bağlantı ister; çevrimdışıyken bekletilmez.",b:["yonetici-iptal","yonetici-geri-al"]},
+ {id:"pano",k:"Yönetici",s:["Pano kimde","dashboard nereden açılır","panoya erişim"],a:["pano","dashboard","rapor","ekran","grafik"],
+  y:"Saha panosu yalnız <b>Master Admin</b>'e açıktır; diğer yöneticiler sahada QR ile çalışır.",i:"Gün sonu raporu Master'a e-postayla gelir.",b:["pano-kaynak","yonetici-kim","rol"]},
+ {id:"rol",k:"Giriş",s:["Rolüm ne","yetkim değişti","yönetici yaptılar görünmüyor"],a:["rol","yetki","yonetici","admin","master","degisti","altyapi"],
+  y:"Rolün girişten sonra üstte yazar (ör. «· Yönetici», «· Kaliteci»).",
+  i:"Rolleri yalnız Master Admin panodan atar; değişiklikten sonra sayfayı yenile.",b:["kilitli-adim","pano"]},
+ {id:"guvenlik",k:"Giriş",s:["Kodumu arkadaşıma verebilir miyim","şifre paylaşmak"],a:["paylas","arkadas","baskasi","sifre ver","kodu ver","guvenlik"],
+  y:"Hayır. Authenticator kodunu ve kurulum QR'ını kimseyle paylaşma; kayıt senin adına yazılır.",b:["kimin-adina","cikis"]},
+ {id:"kimin-adina",k:"Giriş",s:["Kayıt kimin adına yazılır","sicil değiştirebilir miyim"],a:["kimin adina","sicil","degistir","adima","baskasi adina"],
+  y:"Kayıt yalnız giriş yapan kişinin adına yazılır; sicil girişten gelir ve değiştirilemez.",b:["guvenlik","cikis"]},
+ {id:"ilk-ekran",k:"Giriş",s:["QR'ı okuttum ekranda sadece iş emri var","rota neden görünmüyor"],a:["ilk ekran","sadece is emri","rota gorunmuyor","giris kutusu","bos ekran"],
+  y:"QR okutunca ilk ekranda yalnız iş emri numarası ve giriş kutusu görünür; rota <b>giriş yaptıktan sonra</b> açılır.",b:["giris","kod-tutmuyor"]},
+ {id:"durus-malzeme",k:"Duraklatma",s:["Malzeme yok diye bekliyorum","önceki operasyondan parça gelmedi"],a:["malzeme yok","hammadde yok","malzeme bekliyorum","parca gelmedi","onceki operasyon","m01","m02","m03"],
+  y:"Malzeme kaynaklı beklemede <b>M</b> grubundan seç.",d:["<b>M01</b> Hammadde / yarı mamul yok","<b>M02</b> Hammadde hatalı / ölçü dışı","<b>M03</b> Önceki operasyondan parça bekleniyor"],b:["durus-neden","malzeme-kaynak"]},
+ {id:"durus-takim",k:"Duraklatma",s:["Takım kırıldı hangi kod","uç değiştiriyorum"],a:["takim","kirildi","uc","asinma","tutucu","on ayar","t01","t02","t03","t04"],
+  y:"Takım kaynaklı duruşta <b>T</b> grubundan seç.",d:["<b>T01</b> Takım kırılması","<b>T02</b> Takım aşınması / uç değişimi","<b>T03</b> Takım / tutucu yok — temin bekleniyor","<b>T04</b> Takım ön ayar / ölçme bekleniyor"],
+  i:"Takım kırılması parçayı bozduysa hurda nedeninde «Takım kırılması»nı seç.",b:["durus-neden","hurda"]},
+ {id:"durus-baglama",k:"Duraklatma",s:["Fikstür hazır değil","bağlama sorunu hangi kod"],a:["fikstur","aparat","baglama","sifirlama","mengene","ayna","cene","f01","f02","f03"],
+  y:"Bağlama ve fikstür kaynaklı duruşta <b>F</b> grubundan seç.",d:["<b>F01</b> Fikstür / aparat hazır değil","<b>F02</b> Bağlama / sıfırlama sorunu","<b>F03</b> Mengene / ayna / çene değişimi"],b:["durus-neden","aparat"]},
+ {id:"durus-program",k:"Duraklatma",s:["CNC programı yok","resim eksik ne seçmeliyim","revizyon bekleniyor"],a:["program","cnc programi","resim","dokuman","revizyon","muhendislik","p01","p02","p03","p04"],
+  y:"Program ya da doküman kaynaklı duruşta <b>P</b> grubundan seç.",d:["<b>P01</b> CNC programı yok / bekleniyor","<b>P02</b> Program hatası / düzeltme","<b>P03</b> Teknik resim / doküman eksik veya belirsiz","<b>P04</b> Revizyon / mühendislik kararı bekleniyor"],b:["durus-neden"]},
+ {id:"durus-bakim",k:"Duraklatma",s:["Planlı bakım için durdum","kalibrasyon ya da temizlik"],a:["bakim","planli bakim","periyodik","kalibrasyon","temizlik","talas bosaltma","b01","b02","b03"],
+  y:"Planlı duruşlarda <b>B</b> grubundan seç; bunlar arıza sayılmaz.",d:["<b>B01</b> Planlı periyodik bakım","<b>B02</b> Kalibrasyon / hassasiyet ayarı","<b>B03</b> Temizlik / talaş boşaltma"],b:["durus-neden","durus-ariza"]},
+ {id:"durus-kalite",k:"Duraklatma",s:["Ölçüm bekliyorum hangi kod","ilk parça onayı bekliyorum","CMM boş değil"],a:["olcum bekliyorum","kalite bekliyorum","ilk parca","cmm","sapma karari","k01","k02","k03","k04"],
+  y:"Kalite kaynaklı beklemede <b>K</b> grubundan seç.",d:["<b>K01</b> Ara ölçüm / kalite kontrol bekleniyor","<b>K02</b> İlk parça onayı bekleniyor","<b>K03</b> Ölçüm cihazı / CMM müsait değil","<b>K04</b> Uygunsuzluk (sapma) kararı bekleniyor"],b:["durus-neden","ilk-parca","sapma"]},
+ {id:"durus-enerji",k:"Duraklatma",s:["Elektrik kesildi","hava yok","vinç bekliyorum"],a:["elektrik","kesinti","hava","basincli hava","vinc","tasima","enerji","altyapi","e01","e02","e03"],
+  y:"Enerji ve altyapı kaynaklı duruşta <b>E</b> grubundan seç.",d:["<b>E01</b> Elektrik kesintisi","<b>E02</b> Basınçlı hava yok","<b>E03</b> Vinç / taşıma ekipmanı bekleniyor"],b:["durus-neden"]},
+ {id:"durus-organizasyon",k:"Duraklatma",s:["Başka işe gönderildim","araya acil iş girdi","eğitime gidiyorum"],a:["baska ise","gorevlendirildim","oncelik","araya is","acil is","egitim","toplanti","isg","o01","o02","o03","o04","o05"],
+  y:"Organizasyon kaynaklı duruşta <b>O</b> grubundan seç.",d:["<b>O01</b> Operatör başka işe görevlendirildi","<b>O02</b> Öncelik değişikliği — araya iş alındı","<b>O03</b> Mesai / vardiya bitimi","<b>O04</b> Eğitim / toplantı","<b>O05</b> İSG durdurması"],b:["durus-neden","durus-aksam"]},
+ {id:"ilk-parca",k:"Adet",s:["İlk parça onayı nasıl girilir","FAI","AS9102"],a:["ilk parca","ilk parca onayi","fai","as9102","ilk numune"],
+  y:"İlk parça muayenesi gereken operasyonlarda <span class=ui>Bu adımda ilk parça onayı var</span> anahtarını aç.",
+  d:["Sonucu seç: <b>Bekliyor</b>, <b>Onaylandı</b> ya da <b>Ret</b>.","Onaylayan kaşe numarasını yaz."],i:"Onay beklerken adımı duraklatıyorsan neden <b>K02 · İlk parça onayı bekleniyor</b>.",b:["durus-kalite","sapma"]},
+ {id:"aparat",k:"Adım",s:["Aparat kullandım nereye yazılır","fikstür ürettim"],a:["aparat","fikstur","ozel takim","baglama aparati","uretildi"],
+  y:"Aparat ya da fikstür kullandıysan veya ürettiysen <span class=ui>Aparat kullanıldı / üretildi</span> anahtarını aç.",
+  d:["Durumu seç: <b>Mevcut</b>, <b>Üretildi</b> ya da <b>Gerekli</b>.","Aparat no ya da kısa açıklamayı yaz."],b:["durus-baglama"]},
+ {id:"malzeme-degisti",k:"Malzeme",s:["Bu iş emrinde kayıtlı yazıyor malzeme değişti","malzemeyi tekrar girmeli miyim"],a:["kayitli","bu is emrinde kayitli","malzeme degisti","tekrar gir","yeniden sec","bos birak"],
+  y:"Ham malzeme iş emrinde bir kez girilir; sonraki adımlarda «Bu iş emrinde kayıtlı» görünür.",
+  d:["Malzeme değiştiyse kaynağı ve lot / seri nosunu yeniden seç.","Değişmediyse alanı boş bırak."],b:["malzeme-kaynak"]},
+ {id:"yonetici-kim",k:"Yönetici",s:["Kim yöneticidir","yönetici kutusu nedir","yönetici kilitli adım görür mü"],a:["kim yonetici","yonetici kutusu","kesik cizgili","master","admin","rol atama"],
+  y:"Rolleri yalnız <b>Master Admin</b> panodan atar.",
+  d:["Yönetici girişinde üstte «Master» ya da «Yönetici» yazar, adım formunda kesik çizgili yönetici kutusu çıkar.","Yöneticiler tüm altyapıların adımlarına kayıt girer; kilitli adım görmez.","Kaliteci rolü yönetici değildir; yalnız ara ölçüm girer."],b:["yonetici-iptal","yonetici-normal-kayit","rol"]},
+ {id:"yonetici-normal-kayit",k:"Yönetici",r:["yonetici"],s:["Yönetici kendi adına kayıt girebilir mi","yönetici devral"],a:["kendi adina","normal kayit","yonetici kayit","yonetici devral"],
+  y:"Evet. Yönetici kendi adına normal kayıt da girer; başkasının açık adımında <b>Devral</b> kuralı geçerlidir.",b:["devral","yonetici-kim"]},
+ {id:"pano-kaynak",k:"Yönetici",s:["Pano verileri nereden geliyor","girdiğim tezgah ve neden ne işe yarıyor"],a:["pano veri","analiz","verimlilik","plan sadakati","izlenebilirlik","durus sekmesi","ne ise yariyor"],
+  y:"Pano'nun Duruş, Verimlilik, Plan Sadakati ve İzlenebilirlik sekmeleri sahada girdiğin <b>neden, tezgah ve ham malzeme</b> kayıtlarından beslenir.",
+  i:"Bu yüzden tezgahı ve duraklama nedenini doğru seçmek önemlidir.",b:["pano","tezgah-zorunlu","durus-neden"]},
+ {id:"gizlilik",k:"Giriş",s:["Telefona hangi bilgiler geliyor","teknik resim telefonda görünür mü","kodum saklanıyor mu"],a:["gizlilik","hangi bilgi","teknik resim","veri","saklaniyor","guvenli mi","kvkk"],
+  y:"Telefona yalnız iş emri, kalem, rota adım adları ve sicil numarası gelir / gider.",
+  d:["Teknik resim ve işlem açıklamaları QR'da yer almaz.","Authenticator kodu yalnız girişte kullanılır, hiçbir yerde saklanmaz."],b:["guvenlik","giris"]}
+];
+const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
+
+
+/* ======================= ANLAMA MOTORU =======================
+   Türkçe büyük/küçük ve aksan düzleştirme, ek toleransı (ortak kök), tek harf yazım hatası,
+   eş anlamlılar, kalıp ve anahtar ağırlıkları, kısa ek sorularda önceki konu bağlamı. */
+const DUR = new Set("ve ile mi mı mu mü ne nasil neden niye nicin icin bu su o bir ben benim sen bana beni da de ki ya veya ama icin gibi olarak olan olur oluyor yapmaliyim yapayim yapilir nedir mi midir mıdır acaba lutfen bunu sunu peki hani ise".split(" "));
+function duz(s){return String(s||"").toLocaleLowerCase("tr-TR").replace(/[çc]/g,"c").replace(/ğ/g,"g").replace(/ı/g,"i").replace(/ö/g,"o").replace(/ş/g,"s").replace(/ü/g,"u").replace(/â/g,"a").replace(/[^a-z0-9.\s]/g," ").replace(/\s+/g," ").trim();}
+function lev1(a,b){ // en fazla 1 düzeltme mi?
+  if(Math.abs(a.length-b.length)>1) return false; let i=0,j=0,f=0;
+  while(i<a.length&&j<b.length){ if(a[i]===b[j]){i++;j++;continue;} if(++f>1) return false;
+    if(a.length>b.length) i++; else if(b.length>a.length) j++; else {i++;j++;} }
+  return f+(a.length-i)+(b.length-j)<=1; }
+function benzer(q,k){ // 0..1
+  if(q===k) return 1; const m=Math.min(q.length,k.length);
+  if(m>=4 && (q.startsWith(k)||k.startsWith(q))) return 0.9;          // ek toleransı: duraklattim ~ duraklat
+  let o=0; while(o<m && q[o]===k[o]) o++; if(o>=5 && o>=m-3) return 0.8;   // ortak kök
+  if(m>=5 && lev1(q,k)) return 0.75;                                     // yazım hatası
+  return 0; }
+/* ======================= EŞ VE YAKIN ANLAMLI SÖZLÜK =======================
+   [görünen ad, asistanın anladığı kavram, söylenebilecek ifadeler]
+   İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
+   (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
+const SOZLUK = [
+ ["Devral","devral",["iş devri","işin devri","devir","devri","devrini","devret","devretmek","devir almak","devir teslim","teslim almak","teslim aldım","teslim etmek","işi almak","işi aldım","işi devralmak","işi bana bıraktı","işi bıraktı","vardiya devri","nöbet devri","el değiştirmek","yerine geçmek","yerine geçtim","yerine devam","kaldığı yerden","arkadaşın işi","arkadaşımın işi","başkasının işi","başkasının adımı","üstüne almak","üzerime almak","benden önceki","önceki operatör","işi devam ettirmek"]],
+ ["Tezgah","tezgah",["makine","makina","makinem","tezgâh","tezgahım","cnc","torna","freze","işleme merkezi","dik işlem","yatay işlem","dmu","taşlama","istasyon","ekipman","cihaz","hangi makine","çalıştığım makine"]],
+ ["Takım","takim",["takım kırıldı","uç kırıldı","kesici","kesici uç","freze ucu","matkap","kılavuz kırıldı","takım aşındı","takım yok","uç bitti","tutucu"]],
+ ["Giriş kodu","kod",["şifre","şifrem","parola","pin","doğrulama kodu","onay kodu","altı haneli","6 haneli","tek kullanımlık","otp","authenticator kodu","güvenlik kodu"]],
+ ["Giriş","giris",["oturum açmak","oturum aç","login","sisteme girmek","sisteme giremiyorum","uygulamaya girmek","giremiyorum","içeri giremiyorum","sayfaya girmek","nasıl girerim"]],
+ ["Authenticator","authenticator",["google authenticator","microsoft authenticator","doğrulayıcı","doğrulama uygulaması","kod uygulaması","şifre uygulaması"]],
+ ["QR","qr",["karekod","kare kod","barkod","qr kod","kod resmi"]],
+ ["Duraklatma","duraklat",["durdurmak","durdur","durdurdum","durdurdu","ara vermek","ara verdim","bekletmek","bekletiyorum","mola vermek","pause","askıya almak","iş durdu","durduk","yarıda bırakmak","yarıda kaldı","işi kesmek"]],
+ ["Duraklama nedeni","sebep",["sebebi","duraklama nedeni","duraklatma nedeni","gerekçe","duruş kodu","duruş sebebi","niye durdu","neden durdu","kod listesi","durma nedeni"]],
+ ["Tezgah arızası","ariza",["bozuldu","bozuk","arızalandı","arıza yaptı","çalışmıyor","alarm verdi","hata verdi","çöktü","çarptı","çarpışma","kaza","patladı","yağ kaçırıyor","duman","elektrik gitti","iş mili","servo"]],
+ ["Tamamlandı","tamamlandi",["bitirdim","bitti","bitiş","kapattım","kapatmak","sonlandırdım","sonlandırmak","tamamladım","iş bitti","kapanış","adımı kapat","finish"]],
+ ["Başladı","basladi",["başlattım","başlatmak","başlamak","işe başladım","işe başlarken","start","açtım","üretime geçtim"]],
+ ["Setup","setup",["hazırlık","hazırlama","ayar","ayarlama","ayar yapmak","bağlama yapmak","sıfırlama","sıfır alma","ön hazırlık","tezgah hazırlığı","kurulum yapıyorum","set up"]],
+ ["Adet","adet",["miktar","kaç tane","kaç adet","parça sayısı","üretilen","ürettiğim","yaptığım parça","çıkan parça","iyi parça","sağlam parça","toplam adet"]],
+ ["Plan aşıldı","plan asildi",["fazla girdim","plandan fazla","plan fazlası","kırmızı yazıyor","kırmızı oldu","fazla adet","adet aştı","fazla ürettim"]],
+ ["Hurda","hurda",["ret parça","red parça","hurdaya ayırdım","fire","ret","red","reddedildi","bozuk parça","hatalı parça","kusurlu","iskarta","ıskarta","atık","çöp","kullanılamaz","parça bozuldu"]],
+ ["Yeniden işlem","yeniden islem",["rework","tamir","tekrar işleme","tekrar işlenecek","düzeltme işlemi","yeniden işlenecek"]],
+ ["Sapma","sapma",["uygunsuzluk","ncr","ölçü dışı","tolerans dışı","resimden farklı","resme uymuyor","teknik resimden farklı","sapma isteği"]],
+ ["Fazla mesai","fazla mesai",["fm","ek mesai","ekstra mesai","uzatma","akşam çalışma","akşam çalıştım","geç saate kadar","overtime","mesaiye kalmak","mesaiye kaldım","mesay"]],
+ ["Hafta sonu","hafta sonu",["haftasonu","cumartesi","pazar","tatil günü","resmi tatil","bayram"]],
+ ["Akşam / vardiya sonu","aksam",["mesai bitti","mesai bitiminde","vardiya sonu","vardiya bitti","eve gidiyorum","paydos","iş çıkışı","çıkış saati","gün sonu","işi bırakırken"]],
+ ["Mola","mola",["yemek arası","öğle arası","öğle yemeği","çay arası","çay molası","dinlenme"]],
+ ["Saat","saat",["zaman","süre","tarih","başlangıç saati","bitiş saati","saati düzelt","saat yanlış"]],
+ ["Sonradan giriş","sonradan",["geriye dönük","girmeyi unuttum","sonra girdim","toplu girmek","toplu kayıt","geç girdim","sonradan girmek","dün yapılan"]],
+ ["Malzeme","malzeme",["hammadde","ham madde","ham malzeme","stok","kütük","blok","profil","sac","çubuk","lama","boru","döküm parça"]],
+ ["Lot / seri no","lot",["lot no","lot numarası","parti no","parti numarası","seri no","seri numarası","şarj no","heat no","döküm no","etiket numarası"]],
+ ["Sertifika","sertifika",["belge","malzeme belgesi","3.1","mill sertifikası","malzeme sertifikası"]],
+ ["Depo","depo",["ambar","envanter","stok alanı","depodan","malzeme deposu"]],
+ ["Malzeme hazır","malzeme hazir",["hazır geldi","kesilmiş geldi","kesili geldi","kesilmiş","malzeme geldi","önceden hazırlanmış","hazır malzeme","malzeme hazırdı"]],
+ ["Gönderme","gonder",["göndermek","kaydetmek","kaydettim","yollamak","iletmek","yüklemek","sisteme işlemek","kayıt atmak","kayıt girmek","kaydet"]],
+ ["Bağlantı","internet",["bağlantı","wifi","wi-fi","kablosuz","şebeke","çekmiyor","sinyal","mobil veri","offline","çevrimdışı","bağlantı yok","internet gitti"]],
+ ["Yanlış kayıt","yanlis",["hatalı","yanlışlıkla","sehven","kazara","hata yaptım","yanlış girdim","yanlış bastım","geri almak","kaydı sil","silmek","düzeltmek"]],
+ ["Telefon","telefon",["cep","cep telefonu","mobil","cihazım","telefonu değiştirdim","yeni hat","yeni telefon"]],
+ ["Kayıp telefon","kaybettim",["çalındı","kayıp","kaybettim","düşürdüm","ekranı kırıldı","telefon bozuldu","telefonu bulamıyorum"]],
+ ["Çıkış","cikis",["oturumu kapat","oturumu kapatmak","logout","çıkmak","hesaptan çık","çıkış yapmak"]],
+ ["Kaliteci","kaliteci",["kalite kontrolcü","kontrolcü","ölçümcü","metrolog","kalite personeli","kaliteciyim"]],
+ ["Ara ölçüm","ara olcum",["ölçüm","ara kontrol","ara muayene","proses içi ölçüm","cmm","ölçü alma","ölçü almak","ara ölçü"]],
+ ["Sıra","sira",["sıralama","rota sırası","adım sırası","operasyon sırası","yerini değiştirmek","öne almak","sonraya almak","yer değiştirmek","sürükle"]],
+ ["İptal","iptal",["vazgeçmek","yapılmayacak","yapılmasın","gerek yok","adımı kaldırmak","iptal etmek"]],
+ ["Kaşe","kase",["kaşe","mühür","imza","damga","paraf","onay kaşesi"]],
+ ["Pano","pano",["dashboard","yönetici ekranı","rapor ekranı","grafikler","izleme ekranı","yönetim ekranı"]],
+ ["Kilitli adım","kilit",["kilitli","kilit işareti","gri görünüyor","yetkim yok","izin yok","erişemiyorum","açılmıyor adım","başka altyapı"]],
+ ["Rol / yetki","rol",["yetki","yetkim","görevim","admin","yönetici yaptılar","rolüm"]],
+ ["Bağlama / fikstür","fikstur",["bağlama","fikstür","aparat","bağlama aparatı","jig","mengene","ayna","çene","sıfırlama","bağlama sorunu"]],
+ ["Program / doküman","program",["cnc programı","nc programı","program yok","program hatası","teknik resim yok","resim eksik","doküman","revizyon","mühendislik kararı"]],
+ ["Planlı bakım","bakim",["bakım","periyodik bakım","yağlama","bakım ekibi","kalibrasyon","hassasiyet ayarı","talaş boşaltma","temizlik"]],
+ ["Enerji / altyapı","enerji",["elektrik kesildi","elektrik yok","cereyan","hava yok","basınçlı hava","kompresör","vinç","forklift","taşıma ekipmanı"]],
+ ["Organizasyon","oncelik",["başka işe verildim","başka işe gönderildim","görevlendirildim","araya iş girdi","acil iş","öncelik değişti","eğitim","toplantı","isg durdurması","iş güvenliği"]],
+ ["İlk parça onayı","ilk parca",["ilk parça","ilk numune","first article","fai","as9102","ilk parça muayenesi","numune onayı"]],
+ ["Gizlilik","gizlilik",["kvkk","kişisel veri","bilgilerim","veri güvenliği","teknik resim görünür mü","kodum saklanıyor"]],
+ ["Durumu yenile","yenile",["güncelle","refresh","sayfayı yenile","güncellenmiyor","eski görünüyor","değişmiyor"]],
+];
+const SOZ = [];
+SOZLUK.forEach(([et,kan,alt])=>{ const k=duz(kan).split(" ");
+  [kan].concat(alt).forEach(a=>{ const t=duz(a).split(" ").filter(Boolean); if(t.length) SOZ.push({t,kan:k,et,a}); }); });
+SOZ.sort((x,y)=>y.t.length-x.t.length || y.t.join("").length-x.t.join("").length);
+function tokEs(t,a){ return t===a || (a.length>=4 && t.startsWith(a) && t.length-a.length<=7) || (a.length>=6 && t.length>=6 && lev1(t,a)); }
+function anla(s){   // ifadeleri kavrama çevirir; eşleşenleri de bildirir
+  const ham=duz(s).split(" ").filter(Boolean), out=[], es=[]; let i=0;
+  while(i<ham.length){ let m=null;
+    for(const kesin of [true,false]){ for(const x of SOZ){ if(i+x.t.length>ham.length) continue; let ok=true;
+      for(let j=0;j<x.t.length;j++){ const t=ham[i+j],a=x.t[j]; if(!(kesin? (t===a||(a.length>=4&&t.startsWith(a)&&t.length-a.length<=7)) : tokEs(t,a))){ok=false;break;} } if(ok){m=x;break;} } if(m) break; }
+    if(m){ out.push(...m.kan); if(m.kan.join(" ")!==ham.slice(i,i+m.t.length).join(" ")) es.push({a:s.split(/\s+/).length===ham.length?s.split(/\s+/).slice(i,i+m.t.length).join(" "):m.a,et:m.et}); i+=m.t.length; }
+    else { if(!DUR.has(ham[i])) out.push(ham[i]); i++; } }
+  return {t:[...new Set(out)],es};
+}
+function parca(s){ return anla(s).t; }
+
+const DIZIN = KB.map(e=>{const kal=e.s.map(parca), an=e.a.map(a=>parca(a));
+  return {e, an, anTek:[...new Set(an.flat())], kalTek:[...new Set(kal.flat().concat(parca(e.k)))], ifade:e.a.map(duz).filter(a=>a.includes(" ")).concat(e.s.map(duz))};});
+let rol="operator", sonKonu=null;
+function puanla(q){
+  const qt=parca(q), qd=duz(q); if(!qt.length) return [];
+  return DIZIN.map(d=>{ let p=0;
+    qt.forEach(t=>{ let b=0; d.anTek.forEach(k=>{b=Math.max(b,benzer(t,k)*2);}); d.kalTek.forEach(k=>{b=Math.max(b,benzer(t,k));}); p+=b; });
+    d.ifade.forEach(f=>{ if(f.length>6 && qd.includes(f)) p+=2.5; });        // tam ifade
+    p/=Math.max(1.6, Math.sqrt(qt.length)*1.25);
+    if(d.an[0] && d.an[0].length && d.an[0].every(t=>qt.includes(t))) p+=0.3;   // konunun ana kavramı
+    if(d.e.r && d.e.r.includes(rol)) p*=1.15;
+    if(d.e.r && !d.e.r.includes(rol)) p*=0.85;
+    if(sonKonu && qt.length<=3 && (sonKonu.b||[]).includes(d.e.id)) p+=0.15;  // ek soru
+    return {e:d.e,p};}).filter(x=>x.p>0).sort((a,b)=>b.p-a.p);
+}
+
+/* ======================= SOHBET ======================= */
+const S = $("#as-sohbet");
+function asagi(){ S.scrollTop = S.scrollHeight; }
+function balon(sinif, html){ const b=document.createElement("div"); b.className="m "+sinif; b.innerHTML=html; S.appendChild(b); asagi(); return b; }
+function kac(s){ return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+function ciplerHtml(liste, sinif){ return '<div class="cipler '+(sinif||"")+'">'+liste.map(x=>'<button type="button" data-sor="'+kac(x.id||"")+'" data-konu="'+kac(x.konu||"")+'">'+x.etiket+'</button>').join("")+'</div>'; }
+function yanitHtml(e){
+  let h = "<h3>"+e.s[0]+"</h3><p>"+e.y+"</p>";
+  if(e.d) h += "<ol>"+e.d.map(x=>"<li>"+x+"</li>").join("")+"</ol>";
+  if(e.n) h += '<div class="not"><b>Dikkat</b><span>'+e.n+"</span></div>";
+  if(e.i) h += '<div class="ipuc">'+e.i+"</div>";
+  const ilgili=(e.b||[]).map(id=>KB.find(x=>x.id===id)).filter(Boolean).filter(x=>!x.r||x.r.includes(rol)||rol==="yonetici");
+  if(ilgili.length) h += '<div class="etiket">İlgili sorular</div>'+ciplerHtml(ilgili.map(x=>({id:x.id,etiket:x.s[0]})));
+  return h;
+}
+function konuyuGoster(konu){
+  const l=KB.filter(e=>e.k===konu && (!e.r||e.r.includes(rol)||rol==="yonetici"));
+  balon("o","<h3>"+kac(konu)+"</h3><p>Bu konuda sorabileceklerin:</p>"+ciplerHtml(l.map(x=>({id:x.id,etiket:x.s[0]}))));
+}
+function cevapla(e, es){ sonKonu=e; const n=(es&&es.length)? '<div class="anl">Anlaşılan: '+es.map(x=>"«"+kac(x.a)+"» → "+kac(x.et)).join(" · ")+"</div>" : ""; balon("o", n+yanitHtml(e)); }
+function sor(metin){
+  metin=metin.trim(); if(!metin) return;
+  balon("ben", kac(metin));
+  const dq=duz(metin);
+  if(/^(merhaba|selam|selamlar|gunaydin|iyi gunler|iyi aksamlar|kolay gelsin)( |$)/.test(dq) && dq.split(" ").length<=3){ balon("o","<p>Merhaba! Saha Teyit'in kullanımıyla ilgili ne sormak istersin?</p>"); return; }
+  if(/^(tesekkur\w*|sagol\w*|eyvallah|tamam|ok|anladim)( |$)/.test(dq) && dq.split(" ").length<=3){ balon("o","<p>Rica ederim. Başka bir sorun olursa yazman yeterli.</p>"); return; }
+  const s=puanla(metin), en=s[0];
+  if(!en || en.p<0.55){
+    const yakin=s.slice(0,3);
+    balon("o", "<p>Bunu tam anlayamadım. Biraz farklı yazmayı dene ya da aşağıdan seç.</p>"+
+      (yakin.length? '<div class="etiket">Bunu mu demek istediniz?</div>'+ciplerHtml(yakin.map(x=>({id:x.e.id,etiket:x.e.s[0]}))) : "")+
+      '<div class="etiket">Konular</div>'+ciplerHtml(KONULAR.map(k=>({konu:k,etiket:k})),"konu")+
+      '<div class="guven">Kılavuzda olmayan bir durumsa planlamaya (Master Admin) danış.</div>');
+    return;
+  }
+  cevapla(en.e, anla(metin).es);
+  const yakin=s.slice(1,3).filter(x=>x.p>=en.p*0.82 && x.p>0.6);
+  if(yakin.length) balon("o",'<div class="etiket" style="margin-top:0">Bunu mu demek istediniz?</div>'+ciplerHtml(yakin.map(x=>({id:x.e.id,etiket:x.e.s[0]}))));
+}
+S.addEventListener("click",ev=>{ const b=ev.target.closest("button"); if(!b) return;
+  if(b.dataset.sor){ const e=KB.find(x=>x.id===b.dataset.sor); if(e){ balon("ben",kac(e.s[0])); cevapla(e);} }
+  else if(b.dataset.konu){ balon("ben",kac(b.dataset.konu)); konuyuGoster(b.dataset.konu); } });
+$("#as-yaz").addEventListener("submit",ev=>{ev.preventDefault(); const g=$("#as-girdi"); sor(g.value); g.value=""; g.focus();});
+
+function karsila(){
+  S.innerHTML="";
+  const oneri = rol==="kaliteci" ? ["kaliteci","ara-olcum-acilmiyor","ara-olcum-paralel","durus-kalite"]
+             : rol==="yonetici" ? ["yonetici-iptal","yonetici-geri-al","yonetici-sira","pano-kaynak"]
+             : ["durus-neden","tezgah-zorunlu","devral","fm-haftaici"];
+  balon("o","<h3>Merhaba 👋</h3><p>İP Saha Teyit'in kullanımıyla ilgili sorularını yanıtlarım. Sorunu kendi cümlelerinle yazabilir ya da aşağıdan seçebilirsin.</p>"+
+    '<div class="etiket">Sık sorulanlar</div>'+ciplerHtml(oneri.map(id=>{const e=KB.find(x=>x.id===id);return {id,etiket:e.s[0]};}))+
+    '<div class="etiket">Konular</div>'+ciplerHtml(KONULAR.map(k=>({konu:k,etiket:k})),"konu"));
+}
+
+function rolOku(){ const y=(document.getElementById("giris-yazi")||{}).textContent||"";
+  return /· Kaliteci/.test(y) ? "kaliteci" : /· (Master|Yönetici)/.test(y) ? "yonetici" : "operator"; }
+const P=$("#asistan"), D=$("#as-ac");
+let acik=false;
+function ac(){ const r=rolOku(); if(!acik && (r!==rol || !S.children.length)){ rol=r; karsila(); }
+  acik=true; P.hidden=false; D.setAttribute("aria-expanded","true"); setTimeout(()=>$("#as-girdi").focus({preventScroll:true}),50); }
+function kapat(){ acik=false; P.hidden=true; D.setAttribute("aria-expanded","false"); D.focus({preventScroll:true}); }
+D.addEventListener("click",()=>acik?kapat():ac());
+$("#as-kapat").addEventListener("click",kapat);
+P.addEventListener("click",ev=>{ if(ev.target===P) kapat(); });
+document.addEventListener("keydown",ev=>{ if(acik && ev.key==="Escape") kapat(); });
 })();
 </script>
 
