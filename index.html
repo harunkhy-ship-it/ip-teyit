@@ -3274,8 +3274,12 @@ const KB = [
   i:"Süreler mesai içidir; duraklamalar düşülür. Bu yüzden iyi adedi doğru girmek önemlidir.",b:["pano-donem","pano-kaynak","adet-girisi"]},
  {id:"pano-donem",k:"Yönetici",s:["Panodaki Son 7 gün filtresi ne","dönem seçimi"],a:["son 7 gun","7 gun","donem","filtre","son 30 gun","tumu","bugun filtresi"],
   y:"Sağ üstteki dönem seçimi panonun hangi tarih aralığını özetleyeceğini belirler: Bugün, Son 7 gün (varsayılan), Son 30 gün ya da Tümü.",
-  d:["Kapanan adım, plansız duruş, OEE kartları, duruş nedenleri ve parça başına süre grafikleri seçilen döneme göre hesaplanır.","Kartlardaki yüzde değişim, aynı uzunluktaki bir önceki dönemle karşılaştırmadır (ör. önceki 7 gün).","«Kapanan adımlar» grafiği her zaman son 14 günü, tezgah çizelgesi bugünü gösterir."],
-  i:"7 gün bir tam çalışma haftasını kapsar; tek günün dalgalanmasını yumuşatır ve haftadan haftaya karşılaştırma verir.",b:["pano","parca-basina-sure"]}
+  d:["Kapanan adım, plansız duruş, OEE kartları, duruş nedenleri ve parça başına süre grafikleri seçilen döneme göre hesaplanır.","Kartlardaki yüzde değişim, aynı uzunluktaki bir önceki dönemle karşılaştırmadır (ör. önceki 7 gün).","«Kapanan adımlar» grafiği her zaman son 14 günü, tezgah çizelgesi bugünü gösterir.","Son seçtiğin dönem ve sekme bu bilgisayarda hatırlanır; pano bir sonraki açılışta onlarla açılır."],
+  i:"7 gün bir tam çalışma haftasını kapsar; tek günün dalgalanmasını yumuşatır ve haftadan haftaya karşılaştırma verir.",b:["pano","parca-basina-sure"]},
+ {id:"mesai-disi-pano",k:"Yönetici",s:["Akşam tezgahlar çalışıyor görünüyor","mesai dışında açık adım süre sayıyor mu"],a:["mesai disi","aksam calisiyor","calisiyor gorunuyor","acik adim","gece","sure sayiyor mu","gun sonunda mi hesaplaniyor"],
+  y:"Hayır. Süreler her pano yenilemesinde kayıtlardan yeniden hesaplanır ve yalnız mesai saatleri içinde sayılır; açık adım akşam süre biriktirmez.",
+  d:["Mesai 17:30'da biter; fazla mesai yalnız «Bugün fazla mesai yapıldı» işaretlendiyse çıkış saatine (en geç 21:00) kadar sayılır.","Tezgah çizelgesi ve gün sonu mailindeki «Tezgahlar bugün» de açık adımı mesai bitişinde keser.","Açık adım sayısı adımın durumunu gösterir (Başladı / Duraklatıldı); tezgahın o anda çalıştığı anlamına gelmez."],
+  i:"Ertesi gün süre ancak «Başladı / Devam ediyor» kaydından itibaren sayılır.",b:["mesai-saatleri","devam-ediyor","pano-donem"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
