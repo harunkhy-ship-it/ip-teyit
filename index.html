@@ -3021,7 +3021,7 @@
 <button type="button" class="as-dugme" id="as-ac" aria-controls="asistan" aria-expanded="false" aria-label="Saha Asistanı" title="Saha Asistanı">?</button>
 <div id="asistan" hidden>
   <section class="as-panel" role="dialog" aria-label="Saha Asistanı">
-    <div class="as-ust"><b>Saha Asistanı<small>Kılavuz v12 · bağlantısız · kayıt girmez</small></b><button type="button" id="as-kapat">Kapat</button></div>
+    <div class="as-ust"><b>Saha Asistanı<small>Kılavuz v13 · bağlantısız · kayıt girmez</small></b><button type="button" id="as-kapat">Kapat</button></div>
     <div id="as-sohbet" aria-live="polite"></div>
     <form id="as-yaz" autocomplete="off"><input id="as-girdi" placeholder="Sorunu yaz: ör. iş devri" aria-label="Soru"><button type="submit">Sor</button></form>
   </section>
@@ -3267,7 +3267,15 @@ const KB = [
   i:"Saat, alıcı ve içerik panoda «Gün sonu raporu» düğmesinden değiştirilir; «Şimdi bana gönder» ile deneme alınır.",b:["pano","pano-kaynak","devam-ediyor"]},
  {id:"markalama",k:"Tezgah",s:["Markalama adımında tezgah ne seçilir","markalama tezgahı"],a:["markalama","marka","lazer markalama","isaretleme","markalama tezgahi"],
   y:"Markalama adımında tezgah kendiliğinden <b>MARKALAMA</b> seçilir; ayrıca seçmen gerekmez.",
-  d:["Adımı seç; tezgah alanında «MARKALAMA» hazır gelir.","Farklı bir yerde markaladıysan listeden değiştirebilirsin."],b:["tezgah-zorunlu","tezgah-degisti"]}
+  d:["Adımı seç; tezgah alanında «MARKALAMA» hazır gelir.","Farklı bir yerde markaladıysan listeden değiştirebilirsin."],b:["tezgah-zorunlu","tezgah-degisti"]},
+ {id:"parca-basina-sure",k:"Yönetici",s:["Parça başına süre nasıl hesaplanıyor","dk/parça grafiği"],a:["parca basina","parca basi","dk parca","birim sure","cevrim suresi","parca suresi"],
+  y:"Pano ana sayfasında biten işler için parça başına süre iki grafikte gösterilir.",
+  d:["<b>Biten iş emirleri</b>: tüm adımların işleme + setup süresi ÷ kafile adedi.","<b>Operasyon ve tezgah</b>: tamamlanan adımların süresi ÷ girilen iyi adet; aynı operasyon ve tezgah birlikte toplanır.","Çubukta mor işleme, açık mor setup payıdır; üstüne gelince ayrıntı çıkar."],
+  i:"Süreler mesai içidir; duraklamalar düşülür. Bu yüzden iyi adedi doğru girmek önemlidir.",b:["pano-donem","pano-kaynak","adet-girisi"]},
+ {id:"pano-donem",k:"Yönetici",s:["Panodaki Son 7 gün filtresi ne","dönem seçimi"],a:["son 7 gun","7 gun","donem","filtre","son 30 gun","tumu","bugun filtresi"],
+  y:"Sağ üstteki dönem seçimi panonun hangi tarih aralığını özetleyeceğini belirler: Bugün, Son 7 gün (varsayılan), Son 30 gün ya da Tümü.",
+  d:["Kapanan adım, plansız duruş, OEE kartları, duruş nedenleri ve parça başına süre grafikleri seçilen döneme göre hesaplanır.","Kartlardaki yüzde değişim, aynı uzunluktaki bir önceki dönemle karşılaştırmadır (ör. önceki 7 gün).","«Kapanan adımlar» grafiği her zaman son 14 günü, tezgah çizelgesi bugünü gösterir."],
+  i:"7 gün bir tam çalışma haftasını kapsar; tek günün dalgalanmasını yumuşatır ve haftadan haftaya karşılaştırma verir.",b:["pano","parca-basina-sure"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
@@ -3293,6 +3301,8 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Parça başına süre","parca basina",["parça başı","birim süre","çevrim süresi","parça süresi","adet başına","tane başına"]],
+ ["Dönem filtresi","donem",["son 7 gün","7 gün","dönem","filtre","son 30 gün","tarih aralığı"]],
  ["Gün sonu raporu","gun sonu",["gün sonu raporu","akşam raporu","rapor maili","günlük rapor","mail raporu","e-posta raporu"]],
  ["Devam ediyor","devam ediyor",["devam ediyorum","devam ettim","işe döndüm","ertesi gün","dünden kalan","hastaydım","raporluydum","izinliydim","gelemedim"]],
  ["Devral","devral",["iş devri","işin devri","devir","devri","devrini","devret","devretmek","devir almak","devir teslim","teslim almak","teslim aldım","teslim etmek","işi almak","işi aldım","işi devralmak","işi bana bıraktı","işi bıraktı","vardiya devri","nöbet devri","el değiştirmek","yerine geçmek","yerine geçtim","yerine devam","kaldığı yerden","arkadaşın işi","arkadaşımın işi","başkasının işi","başkasının adımı","üstüne almak","üzerime almak","benden önceki","önceki operatör","işi devam ettirmek"]],
