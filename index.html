@@ -2347,11 +2347,21 @@
     var u = adimDurumlari()[x[0]], son = u && sunucu.adimlar[x[0]] && sunucu.adimlar[x[0]].tezgah;
     var sonL = null;
     if (son) liste.forEach(function (t) { if (tezNorm(t) === tezNorm(son)) sonL = t; });
-    sel.value = sonL || "";
+    // Markalama adımı: tezgah kendiliğinden «MARKALAMA» (listede adı geçen tezgah ya da eklenen seçenek)
+    var mark = null;
+    if (/MARKALAMA/.test(altNorm(x[1]))) {
+      liste.forEach(function (t) { if (!mark && tezNorm(t).indexOf("MARKALAMA") >= 0) mark = t; });
+      if (!mark) {
+        mark = "MARKALAMA";
+        var mo = document.createElement("option"); mo.value = mark; mo.textContent = mark; sel.appendChild(mo);
+      }
+    }
+    sel.value = sonL || mark || "";
     sel.disabled = false;
     tezgahAlani().classList.remove("hatali");
     $("#tezgah-etiket").textContent = gerek ? "Tezgah (zorunlu)" : "Tezgah";
     var not = sonL ? "Bu adımda son girilen tezgah: " + sonL + ". Değiştiyse yeniden seçin."
+            : mark ? "Markalama adımı: tezgah kendiliğinden «" + mark + "» seçildi."
             : adda ? "İP önerisi: " + adda + ". İşe başladığınız tezgahı seçin."
             : gerek ? "İşe başladığınız tezgahı seçin." : "";
     $("#tezgah-not").hidden = !not;
@@ -3254,7 +3264,10 @@ const KB = [
  {id:"gun-sonu-raporu",k:"Yönetici",s:["Gün sonu raporunda neler var","akşam gelen mail","rapor maili"],a:["gun sonu","rapor","mail","e posta","eposta","aksam raporu","tezgahlar bugun"],
   y:"Gün sonu raporu her akşam (varsayılan 17:30) Master Admin'e pano görünümünde e-postayla gelir; o gün sahada kayıt yoksa gönderilmez.",
   d:["Özet kartları: kapanan adım, işleme, plansız duruş, kalite, açık adım.","Son 7 gün kapanan adım grafiği.","<b>Tezgahlar bugün</b>: her tezgah için yarım saatlik çalışma / duraklama çizelgesi, çalışma ve duruş süresi, son iş; bugün çalışmayan tezgahlar.","Plansız duruş nedenleri, kişi bazında çalışma ve açık kalan adımlar."],
-  i:"Saat, alıcı ve içerik panoda «Gün sonu raporu» düğmesinden değiştirilir; «Şimdi bana gönder» ile deneme alınır.",b:["pano","pano-kaynak","devam-ediyor"]}
+  i:"Saat, alıcı ve içerik panoda «Gün sonu raporu» düğmesinden değiştirilir; «Şimdi bana gönder» ile deneme alınır.",b:["pano","pano-kaynak","devam-ediyor"]},
+ {id:"markalama",k:"Tezgah",s:["Markalama adımında tezgah ne seçilir","markalama tezgahı"],a:["markalama","marka","lazer markalama","isaretleme","markalama tezgahi"],
+  y:"Markalama adımında tezgah kendiliğinden <b>MARKALAMA</b> seçilir; ayrıca seçmen gerekmez.",
+  d:["Adımı seç; tezgah alanında «MARKALAMA» hazır gelir.","Farklı bir yerde markaladıysan listeden değiştirebilirsin."],b:["tezgah-zorunlu","tezgah-degisti"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
@@ -3283,6 +3296,7 @@ const SOZLUK = [
  ["Gün sonu raporu","gun sonu",["gün sonu raporu","akşam raporu","rapor maili","günlük rapor","mail raporu","e-posta raporu"]],
  ["Devam ediyor","devam ediyor",["devam ediyorum","devam ettim","işe döndüm","ertesi gün","dünden kalan","hastaydım","raporluydum","izinliydim","gelemedim"]],
  ["Devral","devral",["iş devri","işin devri","devir","devri","devrini","devret","devretmek","devir almak","devir teslim","teslim almak","teslim aldım","teslim etmek","işi almak","işi aldım","işi devralmak","işi bana bıraktı","işi bıraktı","vardiya devri","nöbet devri","el değiştirmek","yerine geçmek","yerine geçtim","yerine devam","kaldığı yerden","arkadaşın işi","arkadaşımın işi","başkasının işi","başkasının adımı","üstüne almak","üzerime almak","benden önceki","önceki operatör","işi devam ettirmek"]],
+ ["Markalama","markalama",["marka basma","lazer markalama","işaretleme","numara basma","markalamak"]],
  ["Tezgah","tezgah",["makine","makina","makinem","tezgâh","tezgahım","cnc","torna","freze","işleme merkezi","dik işlem","yatay işlem","dmu","taşlama","istasyon","ekipman","cihaz","hangi makine","çalıştığım makine"]],
  ["Takım","takim",["takım kırıldı","uç kırıldı","kesici","kesici uç","freze ucu","matkap","kılavuz kırıldı","takım aşındı","takım yok","uç bitti","tutucu"]],
  ["Giriş kodu","kod",["şifre","şifrem","parola","pin","doğrulama kodu","onay kodu","altı haneli","6 haneli","tek kullanımlık","otp","authenticator kodu","güvenlik kodu"]],
