@@ -467,6 +467,10 @@
         <span id="devral-yazi"></span>
         <button type="button" class="devral-btn" id="devral-btn">Devral</button>
       </div>
+      <div class="devral-kutu" id="devam-kutu" hidden>
+        <span id="devam-yazi"></span>
+        <button type="button" class="devral-btn" id="devam-btn">Devam ediyorum</button>
+      </div>
       <div class="yonetici-kutu" id="yonetici-kutu" hidden>
         <p class="yk-baslik" id="yk-baslik">YÖNETİCİ</p>
         <p class="not" id="yk-yazi" style="margin:0 0 8px"></p>
@@ -508,7 +512,7 @@
         <label class="alan" style="margin-top:0">
           <span class="etiket">Durum</span>
           <div class="secim" id="durum-secim">
-            <button type="button" data-deger="BASLADI">Başladı</button>
+            <button type="button" data-deger="BASLADI">Başladı / Devam ediyor</button>
             <button type="button" data-deger="SETUP">Setup'ta</button>
             <button type="button" data-deger="DURAKLADI">Duraklatıldı</button>
             <button type="button" data-deger="TAMAM" aria-pressed="true">Tamamlandı</button>
@@ -1137,7 +1141,20 @@
     if (!g || !u || !u.son_kase || u.durum === "TAMAM" || u.son_kase === g.sicil) return null;
     return { kimde: u.son_kase, durum: u.durum, zaman: u.zaman };
   }
+  /* Günlük yoklama: kendi açık adımın önceki günden kaldıysa bugün «Başladı / Devam ediyor»
+     girilmeden o günün süresi sayılmaz (hastalık / izin günü iş sürüyor görünmesin). */
+  function devamGoster(no) {
+    var g = girisOku(), u = sunucu.adimlar && sunucu.adimlar[no], k = $("#devam-kutu");
+    var z = u && u.zaman ? new Date(u.zaman) : null;
+    var gerek = !!(g && u && z && u.son_kase === g.sicil && ["BASLADI", "SETUP", "DURAKLADI"].indexOf(u.durum) >= 0 &&
+                   z.toDateString() !== new Date().toDateString());
+    k.hidden = !gerek;
+    if (gerek) $("#devam-yazi").textContent = "Bu adımın son kaydı " + z.toLocaleDateString("tr-TR") +
+      " tarihli. Bugün bu işte çalışıyorsan «Başladı / Devam ediyor» gönder; göndermezsen bugünkü süre sayılmaz.";
+  }
+  $("#devam-btn").addEventListener("click", function () { durumElle = true; durumUygula("BASLADI"); });
   function devralGoster(no) {
+    devamGoster(no);
     var dv = devralGerekli(no), k = $("#devral-kutu");
     k.hidden = !dv;
     if (!dv) return null;
@@ -3195,7 +3212,11 @@ const KB = [
   i:"Bu yüzden tezgahı ve duraklama nedenini doğru seçmek önemlidir.",b:["pano","tezgah-zorunlu","durus-neden"]},
  {id:"gizlilik",k:"Giriş",s:["Telefona hangi bilgiler geliyor","teknik resim telefonda görünür mü","kodum saklanıyor mu"],a:["gizlilik","hangi bilgi","teknik resim","veri","saklaniyor","guvenli mi","kvkk"],
   y:"Telefona yalnız iş emri, kalem, rota adım adları ve sicil numarası gelir / gider.",
-  d:["Teknik resim ve işlem açıklamaları QR'da yer almaz.","Authenticator kodu yalnız girişte kullanılır, hiçbir yerde saklanmaz."],b:["guvenlik","giris"]}
+  d:["Teknik resim ve işlem açıklamaları QR'da yer almaz.","Authenticator kodu yalnız girişte kullanılır, hiçbir yerde saklanmaz."],b:["guvenlik","giris"]},
+ {id:"devam-ediyor",k:"Adım",s:["Ertesi gün işe devam ederken ne girmeliyim","Başladı / Devam ediyor nedir","dünden açık adım"],a:["devam ediyor","devam ediyorum","ertesi gun","dunden acik","her sabah","yoklama","hastalik","izin","rapor","gelmedim"],
+  y:"Adımın dünden ya da daha önceki bir günden açık kaldıysa, işe döndüğün gün <span class=ui>Başladı / Devam ediyor</span> kaydını gönder.",
+  d:["Adımı seç; «Bu adımın son kaydı … tarihli» uyarısı çıkar.","<span class=ui>Devam ediyorum</span>'a dokun, tezgahı seç, <span class=ui>Kaydet ve Gönder</span>.","Süre o günün bu kaydın saatinden itibaren sayılır."],
+  n:"Göndermezsen o günün süresi sayılmaz. Hastalık, izin gibi gelmediğin günlerde iş «sürüyor» görünmez.",b:["kayit-sirasi","durus-aksam","mesai-saatleri"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
@@ -3221,6 +3242,7 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Devam ediyor","devam ediyor",["devam ediyorum","devam ettim","işe döndüm","ertesi gün","dünden kalan","hastaydım","raporluydum","izinliydim","gelemedim"]],
  ["Devral","devral",["iş devri","işin devri","devir","devri","devrini","devret","devretmek","devir almak","devir teslim","teslim almak","teslim aldım","teslim etmek","işi almak","işi aldım","işi devralmak","işi bana bıraktı","işi bıraktı","vardiya devri","nöbet devri","el değiştirmek","yerine geçmek","yerine geçtim","yerine devam","kaldığı yerden","arkadaşın işi","arkadaşımın işi","başkasının işi","başkasının adımı","üstüne almak","üzerime almak","benden önceki","önceki operatör","işi devam ettirmek"]],
  ["Tezgah","tezgah",["makine","makina","makinem","tezgâh","tezgahım","cnc","torna","freze","işleme merkezi","dik işlem","yatay işlem","dmu","taşlama","istasyon","ekipman","cihaz","hangi makine","çalıştığım makine"]],
  ["Takım","takim",["takım kırıldı","uç kırıldı","kesici","kesici uç","freze ucu","matkap","kılavuz kırıldı","takım aşındı","takım yok","uç bitti","tutucu"]],
