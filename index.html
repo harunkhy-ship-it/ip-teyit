@@ -669,15 +669,31 @@
         <p class="adet-uyari" id="adet-uyari" hidden></p>
       </div>
 
+      <div class="kart" id="fai-sonuc-kart" hidden style="border-color:var(--uyari)">
+        <p class="not" id="fai-sonuc-yazi" style="margin-top:0"></p>
+        <label class="alan">
+          <span class="etiket">FAI sonucu</span>
+          <div class="secim" id="fai-sonuc-secim">
+            <button type="button" data-deger="ONAY" aria-pressed="false">Onay</button>
+            <button type="button" data-deger="RET" aria-pressed="false">Ret</button>
+          </div>
+        </label>
+        <p class="not" style="margin-bottom:0">Onay ana adıma kendiliğinden geçer; Ret yalnız uyarı olarak görünür, süreç durmaz. Ara ölçüm adımınız açık kalabilir, kapatmanız gerekmez.</p>
+      </div>
+      <p class="not" id="fai-durum" hidden></p>
+
       <h2>İlk Parça Onayı</h2>
       <div class="kart">
         <label class="anahtar">
           <input type="checkbox" id="fai-var">
-          <span class="metin">Bu adımda ilk parça onayı var
-            <small>AS9102 ilk parça muayenesi gereken operasyonlarda işaretleyin</small></span>
+          <span class="metin">İlk parça bitti, onaya (FAI) gönder
+            <small>AS9102 ilk parça muayenesi gereken operasyonlarda, ilk parçayı bildirdiğiniz kayıtta işaretleyin</small></span>
         </label>
         <div class="ek" id="fai-ek" hidden>
-          <label class="alan">
+          <p class="not" style="margin:0">Adım <b>«İlk parça onayında (FAI)»</b> görünür; bu süre planlı kalite süresidir.
+            Sonucu kaliteci ara ölçüm adımında girer: <b>Onay</b> gelince adım kendiliğinden «Başladı / Devam ediyor»a,
+            <b>Ret</b> gelirse uyarı çıkar, süreç durmaz. Beklemek zorunda değilsiniz; seri üretime devam ederseniz «Başladı / Devam ediyor» gönderin.</p>
+          <label class="alan" hidden>
             <span class="etiket">Sonuç</span>
             <div class="secim" id="fai-secim">
               <button type="button" data-deger="BEKLIYOR" aria-pressed="true">Bekliyor</button>
@@ -685,7 +701,7 @@
               <button type="button" data-deger="RET">Ret</button>
             </div>
           </label>
-          <label class="alan">
+          <label class="alan" hidden>
             <span class="etiket">Onaylayan kaşe no</span>
             <input type="text" id="fai-kase" inputmode="numeric" autocomplete="off" placeholder="2210">
           </label>
@@ -1776,6 +1792,34 @@
     });
   }
 
+  /* FAI: ana adımda ilk parça onayı bekleniyorsa ara ölçüm adımında sonuç kartı; ana adımda durum notu */
+  var faiSonuc = "", faiAna = null;
+  function faiGoster(x) {
+    faiSonuc = ""; faiAna = null;
+    [].forEach.call($("#fai-sonuc-secim").querySelectorAll("button"), function (b) { b.setAttribute("aria-pressed", "false"); });
+    var st = sunucu.adimlar || {}, kart = $("#fai-sonuc-kart"), dn = $("#fai-durum");
+    kart.hidden = true; dn.hidden = true;
+    if (altAdimMi(x[0])) {
+      var an = oncekiAdimNo(x[0]), ana = an && is.a.filter(function (y) { return y[0] === an; })[0], u = st[an];
+      if (ana && u && u.fai === "BEKLIYOR") {
+        faiAna = ana; kart.hidden = false;
+        $("#fai-sonuc-yazi").textContent = "Adım " + gNo(an) + " · " + ana[1] + ": ilk parça onayı bekleniyor" +
+          (u.fai_z ? " (" + new Date(u.fai_z).toTimeString().slice(0, 5) + ")" : "") + ". Ölçüm bitince sonucu seçip gönderin.";
+      }
+      return;
+    }
+    var v = st[x[0]];
+    if (v && v.fai) {
+      dn.hidden = false;
+      dn.textContent = v.fai === "BEKLIYOR" ? "İlk parça onayında (FAI): sonuç kaliteciden bekleniyor."
+        : v.fai === "ONAY" ? "İlk parça onayı: ONAY. Seri üretime devam." : "İlk parça onayı: RET. Süreç durmadı; uygunsuzluğu planlamaya / kaliteye bildirin, gerekirse ilk parçayı yeniden onaya gönderin.";
+    }
+  }
+  $("#fai-sonuc-secim").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    faiSonuc = faiSonuc === b.dataset.deger ? "" : b.dataset.deger;
+    [].forEach.call(this.querySelectorAll("button"), function (y) { y.setAttribute("aria-pressed", y.dataset.deger === faiSonuc ? "true" : "false"); });
+  });
   function oncekiAdimNo(no) {           // önceki ANA adım (ara ölçüm paralel)
     var i = is.a.findIndex(function (x) { return x[0] === no; });
     for (var j = i - 1; j >= 0; j--) if (!altAdimMi(is.a[j][0])) return is.a[j][0];
@@ -2395,6 +2439,7 @@
     adetOto = false; adetOtoIptal = false;
     adetOzetiCiz();
     kuraliGoster(x[0]);
+    faiGoster(x);
     sunucuYukle();                     // başka telefonların son girişleri
     $("#teyit").scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -2518,7 +2563,8 @@
     if (ur.plan != null && (buKayit || ur.toplam)) ek("UKALAN", Math.max(0, ur.plan - ur.toplam - buKayit));
     if (parseInt($("#hurda").value, 10) > 0) ek("HNED", $("#hurda-neden").value);
     ek("YEN", $("#yeniden").value);
-    if ($("#fai-var").checked) { ek("FAI", durum.fai); ek("FKASE", $("#fai-kase").value.trim()); }
+    if ($("#fai-var").checked) ek("FAI", "BEKLIYOR");
+    if (faiSonuc && faiAna) { ek("FAIS", faiSonuc); ek("FAIA", faiAna[0]); }
     if ($("#apa-var").checked) { ek("APA", durum.apa); ek("APANO", $("#apa-no").value.trim()); }
     if ($("#sap-var").checked) {
       ek("SAPMA", "VAR"); ek("SMETIN", $("#sap-metin").value.trim());
@@ -2744,7 +2790,7 @@
       kayit: { ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: durum.durum,
                iyi: a.A5, sapma: a.A6, metin: metin, isl: a.A8, setup: a.A9,
                devral: devral, olusma: Date.now(), altyapi: secili[2] || "",
-               onceki_no: oncekiAdimNo(secili[0]) }
+               onceki_no: oncekiAdimNo(secili[0]), fai_adim_ad: faiSonuc && faiAna ? faiAna[1] : "" }
     };
   }
 
@@ -3238,9 +3284,13 @@ const KB = [
   y:"Enerji ve altyapı kaynaklı duruşta <b>E</b> grubundan seç.",d:["<b>E01</b> Elektrik kesintisi","<b>E02</b> Basınçlı hava yok","<b>E03</b> Vinç / taşıma ekipmanı bekleniyor"],b:["durus-neden"]},
  {id:"durus-organizasyon",k:"Duraklatma",s:["Başka işe gönderildim","araya acil iş girdi","eğitime gidiyorum"],a:["baska ise","gorevlendirildim","oncelik","araya is","acil is","egitim","toplanti","isg","o01","o02","o03","o04","o05"],
   y:"Organizasyon kaynaklı duruşta <b>O</b> grubundan seç.",d:["<b>O01</b> Operatör başka işe görevlendirildi","<b>O02</b> Öncelik değişikliği — araya iş alındı","<b>O03</b> Mesai / vardiya bitimi","<b>O04</b> Eğitim / toplantı","<b>O05</b> İSG durdurması"],b:["durus-neden","durus-aksam"]},
- {id:"ilk-parca",k:"Adet",s:["İlk parça onayı nasıl girilir","FAI","AS9102"],a:["ilk parca","ilk parca onayi","fai","as9102","ilk numune"],
-  y:"İlk parça muayenesi gereken operasyonlarda <span class=ui>Bu adımda ilk parça onayı var</span> anahtarını aç.",
-  d:["Sonucu seç: <b>Bekliyor</b>, <b>Onaylandı</b> ya da <b>Ret</b>.","Onaylayan kaşe numarasını yaz."],i:"Onay beklerken adımı duraklatıyorsan neden <b>K02 · İlk parça onayı bekleniyor</b>.",b:["durus-kalite","sapma"]},
+ {id:"ilk-parca",k:"Adet",s:["İlk parça onayı (FAI) nasıl yapılır","FAI","AS9102"],a:["ilk parca","ilk parca onayi","fai","as9102","ilk numune","onaya gonder"],
+  y:"İlk parçayı bitirince, ilk parçayı bildirdiğin kayıtta <span class=ui>İlk parça bitti, onaya (FAI) gönder</span> anahtarını aç (İyi = 1) ve gönder.",
+  d:["Adım «İlk parça onayında (FAI)» görünür; bu süre planlı kalite süresidir, duruş sayılmaz.","Sonucu <b>kaliteci</b> ara ölçüm adımında Onay / Ret olarak girer.","<b>Onay</b> gelince adım kendiliğinden «Başladı / Devam ediyor»a geçer.","<b>Ret</b> gelirse uyarı çıkar; süreç durmaz."],
+  i:"Beklemek zorunda değilsin: seri üretime devam edeceksen «Başladı / Devam ediyor» gönder. FAI süresi ilk parça süresine eklenir.",b:["fai-kaliteci","ilk-parca-suresi","durus-kalite"]},
+ {id:"fai-kaliteci",k:"Kaliteci",s:["Kaliteci FAI sonucunu nasıl girer","FAI onay ret"],a:["fai sonucu","fai onay","fai ret","ilk parca onayi ver","onay ret","kaliteci fai"],
+  y:"Ara ölçüm adımını seç; ana adımda ilk parça onayı bekleniyorsa <b>FAI sonucu</b> kartı çıkar. <span class=ui>Onay</span> ya da <span class=ui>Ret</span> seçip gönder.",
+  d:["Ölçüme başlarken ara ölçüm adımına «Başladı» girersen ölçüm süresi ayrıca hesaplanır.","Onay ana adıma kendiliğinden geçer; Ret yalnız uyarıdır, süreç durmaz.","Ara ölçüm adımını kapatman gerekmez; paraleldir, hiçbir adımı bekletmez."],b:["ilk-parca","kaliteci","ara-olcum-paralel"]},
  {id:"aparat",k:"Adım",s:["Aparat kullandım nereye yazılır","fikstür ürettim"],a:["aparat","fikstur","ozel takim","baglama aparati","uretildi"],
   y:"Aparat ya da fikstür kullandıysan veya ürettiysen <span class=ui>Aparat kullanıldı / üretildi</span> anahtarını aç.",
   d:["Durumu seç: <b>Mevcut</b>, <b>Üretildi</b> ya da <b>Gerekli</b>.","Aparat no ya da kısa açıklamayı yaz."],b:["durus-baglama"]},
@@ -3288,7 +3338,7 @@ const KB = [
  {id:"ilk-parca-suresi",k:"Adet",s:["İlk parça süresi nasıl ölçülür","seri işte parça başına süre","her parça için süre"],a:["ilk parca suresi","parca basina","her parca","seri is","birim sure","iyi 1","ilk parca bitti"],
   y:"Seri işlerde ilk parça bitince <span class=ui>Başladı / Devam ediyor</span> seçip <span class=ui>İyi (bu kayıt)</span> kutusuna <b>1</b> yazıp gönder.",
   d:["Setup'ı «Setup'ta» ile ayrı gir; ilk parça süresine setup katılmaz.","Sonraki parçaları bitirdikçe ya da birkaç parçada bir toplu bildir (ör. İyi = 4).","Son parçada «Tamamlandı» ile kalan adedi gönder."],
-  i:"Panoda iş emri seçilince «1 parça üretim verisi»: ilk parça süresi, seri parça başı ve ortalama gösterilir; adım bitince «Parça Süreleri» tablosuna kaydedilir.",b:["adet-girisi","parca-basina-sure","setup"]}
+  i:"FAI istediysen istekten kalite sonucuna kadar geçen süre ilk parçaya eklenir. Panoda iş emri seçilince «1 parça üretim verisi» görünür; adım bitince «Parça Süreleri» tablosuna kaydedilir.",b:["adet-girisi","parca-basina-sure","setup"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
