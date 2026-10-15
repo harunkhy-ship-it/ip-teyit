@@ -664,6 +664,8 @@
           </select>
         </label>
         <p class="not adet-ozet" id="adet-ozet">Planlanan adet: —</p>
+        <p class="not" id="ilk-parca-ipucu" hidden>Seri iş: <b>ilk parça bitince</b> «Başladı / Devam ediyor» ile <b>İyi = 1</b> gönderin;
+          sonraki parçaları bitirdikçe ya da toplu bildirin. Panoda ilk parça ve parça başı süre bu kayıtlardan hesaplanır.</p>
         <p class="adet-uyari" id="adet-uyari" hidden></p>
       </div>
 
@@ -997,6 +999,8 @@
   function adetOzetiCiz() {
     if (!secili) return;
     var u = uretimDurumu(secili[0]);
+    // İlk parça ipucu: plan > 1 ve adımda henüz iyi adet bildirilmemişken (zorunlu değil)
+    $("#ilk-parca-ipucu").hidden = !(u.plan > 1 && !u.toplam && durum.durum !== "DURAKLADI");
     var bu = parseInt($("#iyi").value, 10); bu = isNaN(bu) ? 0 : bu;
     var e = $("#adet-ozet"), uy = $("#adet-uyari");
     var t, asim = false;
@@ -3280,7 +3284,11 @@ const KB = [
  {id:"mesai-disi-pano",k:"Yönetici",s:["Akşam tezgahlar çalışıyor görünüyor","mesai dışında açık adım süre sayıyor mu"],a:["mesai disi","aksam calisiyor","calisiyor gorunuyor","acik adim","gece","sure sayiyor mu","gun sonunda mi hesaplaniyor"],
   y:"Hayır. Süreler her pano yenilemesinde kayıtlardan yeniden hesaplanır ve yalnız mesai saatleri içinde sayılır; açık adım akşam süre biriktirmez.",
   d:["Mesai 17:30'da biter; fazla mesai yalnız «Bugün fazla mesai yapıldı» işaretlendiyse çıkış saatine (en geç 21:00) kadar sayılır.","Tezgah çizelgesi ve gün sonu mailindeki «Tezgahlar bugün» de açık adımı mesai bitişinde keser.","Açık adım sayısı adımın durumunu gösterir (Başladı / Duraklatıldı); tezgahın o anda çalıştığı anlamına gelmez."],
-  i:"Ertesi gün süre ancak «Başladı / Devam ediyor» kaydından itibaren sayılır.",b:["mesai-saatleri","devam-ediyor","pano-donem"]}
+  i:"Ertesi gün süre ancak «Başladı / Devam ediyor» kaydından itibaren sayılır.",b:["mesai-saatleri","devam-ediyor","pano-donem"]},
+ {id:"ilk-parca-suresi",k:"Adet",s:["İlk parça süresi nasıl ölçülür","seri işte parça başına süre","her parça için süre"],a:["ilk parca suresi","parca basina","her parca","seri is","birim sure","iyi 1","ilk parca bitti"],
+  y:"Seri işlerde ilk parça bitince <span class=ui>Başladı / Devam ediyor</span> seçip <span class=ui>İyi (bu kayıt)</span> kutusuna <b>1</b> yazıp gönder.",
+  d:["Setup'ı «Setup'ta» ile ayrı gir; ilk parça süresine setup katılmaz.","Sonraki parçaları bitirdikçe ya da birkaç parçada bir toplu bildir (ör. İyi = 4).","Son parçada «Tamamlandı» ile kalan adedi gönder."],
+  i:"Panoda iş emri seçilince «1 parça üretim verisi»: ilk parça süresi, seri parça başı ve ortalama gösterilir; adım bitince «Parça Süreleri» tablosuna kaydedilir.",b:["adet-girisi","parca-basina-sure","setup"]}
 ];
 const KONULAR = ["Giriş","Adım","Tezgah","Duraklatma","Adet","Fazla mesai","Malzeme","Devral","Saat","Gönderme","Kaliteci","Yönetici","QR"];
 
@@ -3306,6 +3314,7 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["İlk parça süresi","ilk parca suresi",["ilk parça süresi","ilk parçanın süresi","ilk parça ne kadar sürdü","birinci parça"]],
  ["Parça başına süre","parca basina",["parça başı","birim süre","çevrim süresi","parça süresi","adet başına","tane başına"]],
  ["Dönem filtresi","donem",["son 7 gün","7 gün","dönem","filtre","son 30 gün","tarih aralığı"]],
  ["Gün sonu raporu","gun sonu",["gün sonu raporu","akşam raporu","rapor maili","günlük rapor","mail raporu","e-posta raporu"]],
