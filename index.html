@@ -1799,6 +1799,10 @@
     [].forEach.call($("#fai-sonuc-secim").querySelectorAll("button"), function (b) { b.setAttribute("aria-pressed", "false"); });
     var st = sunucu.adimlar || {}, kart = $("#fai-sonuc-kart"), dn = $("#fai-durum");
     kart.hidden = true; dn.hidden = true;
+    // «Onaya gönder» anahtarı ana adımlarda; ara ölçüm adımında kaliteci yalnız sonucu girer
+    var fk = $("#fai-var").closest(".kart"), alt = altAdimMi(x[0]);
+    fk.hidden = alt; if (fk.previousElementSibling) fk.previousElementSibling.hidden = alt;
+    if (alt && $("#fai-var").checked) { $("#fai-var").checked = false; $("#fai-ek").hidden = true; }
     if (altAdimMi(x[0])) {
       var an = oncekiAdimNo(x[0]), ana = an && is.a.filter(function (y) { return y[0] === an; })[0], u = st[an];
       if (ana && u && u.fai === "BEKLIYOR") {
@@ -3071,7 +3075,7 @@
 <button type="button" class="as-dugme" id="as-ac" aria-controls="asistan" aria-expanded="false" aria-label="Saha Asistanı" title="Saha Asistanı">?</button>
 <div id="asistan" hidden>
   <section class="as-panel" role="dialog" aria-label="Saha Asistanı">
-    <div class="as-ust"><b>Saha Asistanı<small>Kılavuz v13 · bağlantısız · kayıt girmez</small></b><button type="button" id="as-kapat">Kapat</button></div>
+    <div class="as-ust"><b>Saha Asistanı<small>Kılavuz v14 · bağlantısız · kayıt girmez</small></b><button type="button" id="as-kapat">Kapat</button></div>
     <div id="as-sohbet" aria-live="polite"></div>
     <form id="as-yaz" autocomplete="off"><input id="as-girdi" placeholder="Sorunu yaz: ör. iş devri" aria-label="Soru"><button type="submit">Sor</button></form>
   </section>
