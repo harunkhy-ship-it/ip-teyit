@@ -138,6 +138,10 @@
   .cip.dis{background:var(--vurgu-soft); color:var(--vurgu)}
   .cip.dur{background:var(--hata-soft); color:var(--hata)}
   .cip.setup{background:var(--vurgu-soft); color:var(--vurgu)}
+  .cip.suren{background:#ECE8FE; color:#5B3FE0}
+  .suren-kutu{margin-top:12px; padding:12px; border-radius:12px; background:#F3F0FF; border:1px solid #CFC5FB}
+  .suren-kutu .etiket{color:#4A31C9}
+  input:disabled{opacity:.75}
   .adim.setupta .no{background:var(--vurgu-soft); border-color:transparent; color:var(--vurgu)}
   .adim.basladi .no{background:var(--uyari-soft); border-color:transparent; color:var(--uyari)}
   .adim.durdu .no{background:var(--hata-soft); border-color:transparent; color:var(--hata)}
@@ -508,6 +512,9 @@
         <button type="button" id="malzeme-evet">Evet, malzeme hazır geldi</button>
         <p class="hata-yazi" id="malzeme-hata" hidden></p>
       </div>
+      <div class="kural-uyari" id="kapanis-kutu" hidden>
+        <p id="kapanis-yazi"></p>
+      </div>
       <div class="kural-uyari" id="kural-uyari" hidden>
         <p id="kural-yazi"></p>
         <button type="button" id="kural-yenile">Durumu yenile</button>
@@ -524,6 +531,7 @@
             <button type="button" data-deger="BASLADI">Başladı / Devam ediyor</button>
             <button type="button" data-deger="SETUP">Setup'ta</button>
             <button type="button" data-deger="DURAKLADI">Duraklatıldı</button>
+            <button type="button" data-deger="SUREN">Süren iş</button>
             <button type="button" data-deger="TAMAM" aria-pressed="true">Tamamlandı</button>
           </div>
         </label>
@@ -535,6 +543,16 @@
           <span class="etiket">Açıklama (zorunlu)</span>
           <input type="text" id="dnka" maxlength="120" autocomplete="off" placeholder="Kısaca ne oldu?">
         </label>
+        <div class="suren-kutu" id="suren-alan" hidden>
+          <span class="etiket">Tezgahın bitiş saati (zorunlu)</span>
+          <div class="tarih-saat">
+            <input type="date" id="suren-tarih" aria-label="Tezgah bitiş tarihi">
+            <input type="time" id="suren-saat" aria-label="Tezgah bitiş saati">
+          </div>
+          <p class="not" style="margin:6px 0 0">Seri işte siz çıktıktan sonra tezgah işlemeye devam ediyorsa seçin.
+            Tezgahın bu saate kadar süren çalışması <b>parça, iş emri ve tezgah</b> süresine girer; sizin
+            çalışma sürenize ve fazla mesaiye girmez. «Bitiş» = sizin çıkış saatiniz.</p>
+        </div>
         <div id="mky-yuva">
           <div class="mky-kart" id="mky-kart" hidden>
             <b class="mky-baslik" id="mky-baslik">Ham malzeme nereden verildi?</b>
@@ -574,7 +592,7 @@
           kayıt yalnız giriş yapan kişi adına yazılır.</p>
         <div class="ikili zaman-ikili" style="margin-top:12px">
           <div class="alan" style="margin:0">
-            <span class="etiket">Başlangıç</span>
+            <span class="etiket" id="bas-etiket">Başlangıç</span>
             <div class="tarih-saat">
               <input type="date" id="bas-tarih" aria-label="Başlangıç tarihi">
               <input type="time" id="bas-saat" aria-label="Başlangıç saati">
@@ -601,7 +619,9 @@
           </div>
         </div>
         <p class="mesai-not">Mesai 08:30–12:45 (10:00–10:20 mola) · 13:45–17:30 ·
-          fazla mesai 18:00–21:00; Cumartesi / Pazar tamamı fazla mesai. Süreler yalnız bu saatler içinde sayılır.</p>
+          fazla mesai 18:00–21:00; Cumartesi / Pazar tamamı fazla mesai. Süreler yalnız bu saatler içinde sayılır.
+          «Başladı / Devam ediyor» başlangıcı <b>QR'ı okuttuğunuz saattir</b> (hafta sonu dahil). Her sabah giriş,
+          her akşam kapanış (Duraklatıldı · O03 / Süren iş / Tamamlandı) zorunludur.</p>
         <div class="fm-gunler" id="fm-alan">
           <div id="fm-hici">
             <label><input type="checkbox" id="fm-var">
@@ -618,8 +638,8 @@
               (ör. akşam «Duraklatıldı») işaretleyin. İşaretlenmeyen günün akşamı sayılmaz.</small>
           </div>
           <p class="fm-hsonu" id="fm-hsonu" hidden><b>Hafta sonu (<span id="fm-hs-gun">—</span>):</b>
-            bugünkü çalışmanız fazla mesai sayılır. Gelince «Başladı», ayrılırken «Duraklatıldı» ya da
-            «Tamamlandı» girin; molalar hafta içi gibi düşülür.</p>
+            bugünkü çalışmanız fazla mesai sayılır. Gelince QR'ı okutup «Başladı» girin (başlangıç = QR okutma
+            saati), ayrılırken «Duraklatıldı», «Süren iş» ya da «Tamamlandı» girin; molalar hafta içi gibi düşülür.</p>
           <p class="fm-kayitli" id="fm-kayitli" hidden></p>
         </div>
         <p class="sure-ozet" id="sure-ozet" hidden></p>
@@ -1175,13 +1195,66 @@
   function devamGoster(no) {
     var g = girisOku(), u = sunucu.adimlar && sunucu.adimlar[no], k = $("#devam-kutu");
     var z = u && u.zaman ? new Date(u.zaman) : null;
-    var gerek = !!(g && u && z && u.son_kase === g.sicil && ["BASLADI", "SETUP", "DURAKLADI"].indexOf(u.durum) >= 0 &&
-                   z.toDateString() !== new Date().toDateString());
+    var gerek = !!(g && u && z && u.son_kase === g.sicil && ["BASLADI", "SETUP", "DURAKLADI", "SUREN"].indexOf(u.durum) >= 0 &&
+                   z.toDateString() !== new Date().toDateString()) && !kapanisEksik(no);
     k.hidden = !gerek;
     if (gerek) $("#devam-yazi").textContent = "Bu adımın son kaydı " + z.toLocaleDateString("tr-TR") +
       " tarihli. Bugün bu işte çalışıyorsan «Başladı / Devam ediyor» gönder; göndermezsen bugünkü süre sayılmaz.";
   }
-  $("#devam-btn").addEventListener("click", function () { durumElle = true; durumUygula("BASLADI"); });
+  $("#devam-btn").addEventListener("click", function () { durumElle = true; durumUygula("BASLADI"); adetGorunurlugu(); });
+
+  /* QR okutma saati: «Başladı / Devam ediyor» (ve «Setup'ta») başlangıcı bu andır, elle değişmez.
+     Sayfa QR ile açıldığında alınır; ilk açılış kaydı gönderilince (ya da 4 saatten eskiyse,
+     ya da adıma bu saatten sonra kayıt girildiyse) yerine kaydın girildiği an kullanılır. */
+  var QR_ZAMAN = Date.now();
+  function acilisBaslangici(no) {
+    var t = QR_ZAMAN, simdi = Date.now();
+    if (t == null || simdi - t > 4 * 3600000 || t > simdi) return simdi;
+    var u = no && sunucu.adimlar && sunucu.adimlar[no];
+    var yerel = no ? adimKayitlari(no)[0] : null;
+    if ((u && u.zaman && u.zaman > t) || (yerel && yerel.zaman > t)) return simdi;
+    return t;
+  }
+  function acilisSaatiYaz() {
+    var qz = acilisBaslangici(secili && secili[0]);
+    $("#bas-tarih").value = gunYazi(qz); $("#bas-saat").value = new Date(qz).toTimeString().slice(0, 5);
+    $("#bas-tarih").dataset.oto = "1"; $("#bas-saat").dataset.oto = "1";
+  }
+
+  /* Zorunlu akşam kapanışı (26.10.2026'dan itibaren): kendi adımın önceki günden «Başladı / Setup'ta»
+     kaldıysa o günün kapanışı (Duraklatıldı · O03 / Süren iş / Tamamlandı) girilmeden yeni kayıt girilmez. */
+  var KAPANIS_BAS = new Date(2026, 9, 26).getTime();
+  var KAPANIS_DURUM = ["DURAKLADI", "SUREN", "TAMAM"];
+  function kapanisEksik(no) {
+    var g = girisOku(), u = sunucu.adimlar && sunucu.adimlar[no];
+    if (!g || !u || !u.zaman || g.rol === "Kaliteci" || u.son_kase !== g.sicil || !acilisMi(u.durum)) return null;
+    var son = adimDurumlari()[no];
+    if (son && !acilisMi(son.durum)) return null;          // kapanış bu telefondan girildi (yolda)
+    var x = secilenAdim(no);
+    if (x && /ARA ÖLÇÜM/.test(altNorm(x[1]))) return null;
+    if (u.zaman < KAPANIS_BAS || new Date(u.zaman).toDateString() === new Date().toDateString()) return null;
+    var gun = new Date(u.zaman); gun.setHours(0, 0, 0, 0);
+    return { no: no, gunMs: gun.getTime(), gun: gun.toLocaleDateString("tr-TR"), zaman: u.zaman };
+  }
+  function kapanisListesi() {
+    return (is && is.a ? is.a : []).map(function (x) { return kapanisEksik(x[0]); }).filter(Boolean);
+  }
+  function kapanisGoster(no) {
+    var l = kapanisListesi(), k = $("#kapanis-kutu"), bu = kapanisEksik(no);
+    k.hidden = !l.length;
+    ["BASLADI", "SETUP"].forEach(function (d) {
+      var b = $("#durum-secim").querySelector('[data-deger="' + d + '"]');
+      if (b) b.hidden = !!bu;
+    });
+    if (!l.length) return null;
+    $("#kapanis-yazi").textContent = bu
+      ? "Kapanış girilmemiş: bu adım " + bu.gun + " günü «Başladı» olarak kaldı. Önce o günün kapanışını girin — " +
+        "«Duraklatıldı · O03 Mesai bitimi», «Süren iş» ya da «Tamamlandı»; Bitiş saati " + bu.gun + " günündendir. " +
+        "Sonra bugün için «Başladı / Devam ediyor» girersiniz."
+      : "Önce kapanış: " + l.map(function (x) { return "adım " + gNo(x.no) + " (" + x.gun + ")"; }).join(", ") +
+        " akşam kapanışı girilmemiş. O adımı seçip kapanışı girmeden bu iş emrinde yeni kayıt girilemez.";
+    return { bu: bu, liste: l };
+  }
   function devralGoster(no) {
     devamGoster(no);
     var dv = devralGerekli(no), k = $("#devral-kutu");
@@ -1620,7 +1693,7 @@
     var once = is.a[j], od = k[once[0]];
     var neden0 = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)" : "";
     if (altAdimMi(no)) {
-      if (od && /^(BASLADI|SETUP|DURAKLADI)$/.test(od.durum)) return null;
+      if (od && /^(BASLADI|SETUP|DURAKLADI|SUREN)$/.test(od.durum)) return null;
       return { once: once, anaBekle: true,
                yazi: "Ara ölçüm, bağlı olduğu ana adım (" + gNo(once[0]) + " · " + once[1] + ") başlamışken açılır. " +
                      "O adımın durumu «" + (od ? DURUM_AD[od.durum] : "Başlamadı") + "»." + neden0 };
@@ -1657,14 +1730,16 @@
     if (e) $("#kural-yazi").textContent = e.yazi;
     var g = girisGoster(), dv = devralGoster(no);
     var bekleyenDevral = dv && devralOnay !== no;
-    $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral;
+    var kp = kapanisGoster(no), kpEngel = kp && !kp.bu;
+    if (kp && kp.bu && acilisMi(durum.durum)) { durumUygula("DURAKLADI"); adetGorunurlugu(); }
+    $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral || !!kpEngel;
     mkyGoster();
     yoneticiGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
                                       ? (altyapiEngeli(secilenAdim(no)).kaliteci ? "Yalnız Ara Ölçüm" : "Başka altyapının adımı")
                                       : mz ? "Önce malzeme onayı" : e.anaBekle ? "Ana adım başlamadı" : "Önceki adım kapanmadı")
                               : !g ? "Önce giriş yapın"
-                              : bekleyenDevral ? "Önce devralın" : "Kaydet ve Gönder";
+                              : bekleyenDevral ? "Önce devralın" : kpEngel ? "Önce kapanışı girin" : "Kaydet ve Gönder";
   }
   function engelNedeni(no) {
     var e = tumEngel(no);
@@ -1675,9 +1750,9 @@
   }
 
   /* Durumların insan okunur karşılıkları ve rozet sınıfları. */
-  var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı",
+  var DURUM_AD = { BASLADI: "Başladı", SETUP: "Setup'ta", DURAKLADI: "Duraklatıldı", TAMAM: "Tamamlandı", SUREN: "Süren iş",
                    IPTAL: "İptal", ATLANDI: "Malzeme hazır" };
-  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam", IPTAL: "iptal",
+  var DURUM_CIP = { BASLADI: "basla", SETUP: "setup", DURAKLADI: "dur", TAMAM: "tamam", IPTAL: "iptal", SUREN: "suren",
                     ATLANDI: "hazir" };
   function kapaliMi(d) { return d === "TAMAM" || d === "IPTAL" || d === "ATLANDI"; }
   /* Malzeme adımları: malzeme hazır gelirse yapılmadan geçilebilir */
@@ -1704,6 +1779,8 @@
   /* Bir adımın son durumuna göre sırada mantıken hangi kaydın geleceği.
      Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
   function oneriDurum(son) {
+    if (secili && kapanisEksik(secili[0])) return "DURAKLADI";   // önce dünkü kapanış
+    if (son === "SUREN") return "BASLADI";       // sabah: tezgahın başına dönüldü
     if (!son) return "BASLADI";
     if (son === "BASLADI") {
       // Adet planı varsa ve üretim sürüyorsa: devam kaydı («Başladı» + bu kayıtta
@@ -1837,7 +1914,7 @@
   /* Her adım BOŞ formla başlar. En önemlisi kaşe/sicil no: bir öncekinin
      numarası taşınırsa operasyon YANLIŞ kişinin üzerine kaydedilir. */
   function formuBosalt() {
-    ["kase", "tezgah", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "kurulum", "isleme",
+    ["kase", "tezgah", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "suren-tarih", "suren-saat", "kurulum", "isleme",
      "iyi", "hurda", "yeniden", "fai-kase", "apa-no", "sap-metin",
      "sap-adet", "sap-kase", "not-metin"].forEach(function (id) {
       var e = $("#" + id);
@@ -1884,6 +1961,10 @@
       if (d === "BASLADI") y += " — şimdi «Duraklatıldı» ya da «Tamamlandı» girebilirsiniz.";
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
+      else if (d === "SUREN") {
+        var sbt = sunucu.adimlar[no] && sunucu.adimlar[no].suren_bit;
+        y += " — tezgah " + (sbt ? sbt.slice(11) + "'e" : "seçilen saate") + " kadar işliyor; gelince «Başladı / Devam ediyor», bitince «Tamamlandı» girin.";
+      }
       else if (d === "IPTAL") y += " — adım yönetici tarafından iptal edildi.";
       else if (d === "ATLANDI") y += " — malzeme hazır geldi; bu adım yapılmadan geçildi.";
       else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
@@ -1983,6 +2064,7 @@
   /* Durumu hem nesneye hem düğmelere işler. */
   function durumUygula(deger) {
     durum.durum = deger;
+    if (deger === "DURAKLADI" && secili && kapanisEksik(secili[0]) && !$("#dnk").value) $("#dnk").value = "O03";
     Array.prototype.forEach.call($("#durum-secim").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", b.dataset.deger === deger ? "true" : "false");
     });
@@ -1999,7 +2081,15 @@
     var d = durum.durum;
     dnkGoster();
     var basladi = acilisMi(d), tamam = d === "TAMAM";
+    var kp = secili ? kapanisEksik(secili[0]) : null;
     $("#bit-alan").hidden = basladi;
+    $("#suren-alan").hidden = d !== "SUREN";
+    // Açılış kaydında başlangıç = QR okutma saati (değiştirilemez)
+    $("#bas-tarih").disabled = basladi; $("#bas-saat").disabled = basladi;
+    $(".hizli[data-hedef=bas]").hidden = basladi;
+    $("#bas-etiket").textContent = basladi ? "Başlangıç (QR okutma saati)" : "Başlangıç";
+    // Kapanış eksikse bitiş o günündür
+    $("#bit-tarih").disabled = !!kp;
     $("#fm-alan").hidden = false; fmGoster();
     $("#sure-alan").hidden = basladi;      // süreler işin sonunda yazılır
 
@@ -2012,17 +2102,35 @@
     var simdi = new Date().toTimeString().slice(0, 5), bugun = gunYazi(Date.now());
     var ilk = secili ? ilkBasladiKaydi(secili[0]) : null;
     if (basladi) {
-      // «Başladı» / «Setup'ta»: o günün tarihi ve şimdiki saat
-      otoDoldur("#bas-tarih", bugun);
-      otoDoldur("#bas-saat", simdi);
+      // «Başladı» / «Setup'ta»: QR okutma saati
+      acilisSaatiYaz();
     } else {
       // Kapatırken: başlangıç ilk açılış kaydından (tarih + saat), bitiş şimdi
+      var su = secili && sunucu.adimlar && sunucu.adimlar[secili[0]];
+      var sb = su && /^[0-9]{2}\.[0-9]{2}\.[0-9]{4} [0-9]{2}:[0-9]{2}$/.test(su.seg_bas || su.bas || "") ? (su.seg_bas || su.bas) : "";
       if (ilk) {
         otoDoldur("#bas-tarih", ilk.basZ ? gunYazi(ilk.basZ) : bugun);
         otoDoldur("#bas-saat", ilk.bas);
-      } else otoDoldur("#bas-tarih", bugun);
+      } else if (sb) {                            // bu telefonda kayıt yok: ortak kayıttaki açılış
+        otoDoldur("#bas-tarih", sb.slice(6, 10) + "-" + sb.slice(3, 5) + "-" + sb.slice(0, 2));
+        otoDoldur("#bas-saat", sb.slice(11));
+      } else { otoDoldur("#bas-tarih", bugun); otoDoldur("#bas-saat", ""); }
       otoDoldur("#bit-tarih", bugun);
       otoDoldur("#bit-saat", simdi);
+      if (kp) {                                   // dünkü kapanış: tarih o gün, saat varsayılan 17:30
+        if ($("#bit-tarih").value !== gunYazi(kp.gunMs)) {
+          $("#bit-tarih").value = gunYazi(kp.gunMs);
+          $("#bit-saat").value = "17:30";
+          $("#bit-saat").dataset.oto = "";
+        }
+      }
+      if (kp) {                                   // başlangıç bitişten sonra kaldıysa: açık kalan son kayıt
+        var kbs = kutudanZaman("#bas-tarih", "#bas-saat"), kbt = kutudanZaman("#bit-tarih", "#bit-saat");
+        if (kbs == null || (kbt != null && kbs > kbt)) {
+          $("#bas-tarih").value = gunYazi(kp.zaman); $("#bas-saat").value = new Date(kp.zaman).toTimeString().slice(0, 5);
+        }
+      }
+      if (d === "SUREN" && !$("#suren-tarih").value) $("#suren-tarih").value = $("#bit-tarih").value || bugun;
     }
     sureOzeti();
   }
@@ -2110,12 +2218,20 @@
   }
   /* Bu kaydın eklediği fazla mesai: hafta sonu → bugün (tüm gün); hafta içi → işaretliyse bugün@çıkış */
   function buKayitFmg() {
+    var kp = secili ? kapanisEksik(secili[0]) : null;
+    if (kp) {                                   // dünkü kapanış: fazla mesai o günün (bitiş 18:00'den sonraysa)
+      var bz = kutudanZaman("#bit-tarih", "#bit-saat");
+      if (haftaSonuMu(kp.gunMs)) return gunAnahtari(kp.gunMs);
+      var bs = bz != null ? new Date(bz).toTimeString().slice(0, 5) : "";
+      return bs > "18:00" ? gunAnahtari(kp.gunMs) + "@" + (bs > "21:00" ? "21:00" : bs) : "";
+    }
     if (haftaSonuMu(Date.now())) return bugunAnahtari();
     if ($("#fm-var").checked && $("#fm-cikis").value) return bugunAnahtari() + "@" + $("#fm-cikis").value.slice(0, 5);
     return "";
   }
   function fmGoster() {
     var hs = haftaSonuMu(Date.now());
+    $("#fm-alan").hidden = !!(secili && kapanisEksik(secili[0]));   // kapanışta fazla mesai bitiş saatinden
     $("#fm-hici").hidden = hs; $("#fm-hsonu").hidden = !hs;
     $("#fm-bugun").textContent = bugunAnahtari().slice(0, 5);
     $("#fm-hs-gun").textContent = bugunAnahtari().slice(0, 5) + " " + GUN_ADI[new Date().getDay()];
@@ -2248,7 +2364,7 @@
     var l = adimKayitlari(no), out = [], durdu = null;
     for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
       var k = l[i];
-      if (k.durum === "DURAKLADI" && k.bitZ) durdu = k.bitZ;
+      if ((k.durum === "DURAKLADI" || k.durum === "SUREN") && k.bitZ) durdu = k.bitZ;
       else if (acilisMi(k.durum) && k.basZ && durdu != null) {
         var a = Math.max(durdu, bas), b = Math.min(k.basZ, bit);
         if (b > a) out.push([a, b]);
@@ -2276,7 +2392,7 @@
     var l = adimKayitlari(no), top = 0, durdu = null;
     for (var i = l.length - 1; i >= 0; i--) {        // eskiden yeniye
       var k = l[i];
-      if (k.durum === "DURAKLADI" && k.bitZ) durdu = k.bitZ;
+      if ((k.durum === "DURAKLADI" || k.durum === "SUREN") && k.bitZ) durdu = k.bitZ;
       else if (acilisMi(k.durum) && k.basZ && durdu != null) {
         var a = Math.max(durdu, bas), b = Math.min(k.basZ, bit);
         if (b > a) top += b - a;
@@ -2548,6 +2664,7 @@
       if ($("#dnk").value === "X99") ek("DNKA", $("#dnka").value.trim());
     }
     if (!$("#mky-kart").hidden) mkyEkle(ek);
+    if (durum.durum === "SUREN") ek("SUREN_BIT", tarihSaat(kutudanZaman("#suren-tarih", "#suren-saat")));
     var sh = sonSure = sureHesabi();
     ek("BAS", sh.basZ != null ? tarihSaat(sh.basZ) : $("#bas-saat").value);
     if (!acilisMi(durum.durum)) {              // iş yeni açıldıysa bitiş/süre olmaz
@@ -2652,6 +2769,28 @@
     }
     var engel = siraEngeli(secili[0]);
     if (engel) { hata(engel.yazi); return; }
+    var kpl = kapanisListesi(), kpu = kapanisEksik(secili[0]);
+    if (kpl.length && !kpu) { hata($("#kapanis-yazi").textContent || "Önce önceki günün kapanışını girin."); return; }
+    if (kpu && KAPANIS_DURUM.indexOf(durum.durum) < 0) {
+      hata("Önce " + kpu.gun + " kapanışını girin: «Duraklatıldı · O03», «Süren iş» ya da «Tamamlandı»."); return;
+    }
+    if (kpu) {
+      var kbz = kutudanZaman("#bit-tarih", "#bit-saat");
+      if (kbz == null || gunYazi(kbz) !== gunYazi(kpu.gunMs) || kbz < kpu.zaman - 5 * 60000) {
+        hata("Kapanışın bitiş saati " + kpu.gun + " günü, son kayıttan (" + tarihSaat(kpu.zaman) + ") sonra olmalı."); return;
+      }
+    }
+    if (acilisMi(durum.durum)) acilisSaatiYaz();       // QR saati (ya da şimdi) gönderim anında yeniden
+    if (durum.durum === "SUREN") {
+      var sbz = kutudanZaman("#suren-tarih", "#suren-saat"), bbz = kutudanZaman("#bit-tarih", "#bit-saat");
+      if (sbz == null) {
+        $("#suren-alan").scrollIntoView({ behavior: "smooth", block: "center" });
+        hata("«Süren iş» için tezgahın bitiş saatini seçin."); return;
+      }
+      if (bbz != null && (sbz <= bbz || sbz - bbz > 24 * 3600000)) {
+        hata("Tezgah bitiş saati, sizin çıkış saatinizden (" + tarihSaat(bbz) + ") sonra ve en çok 24 saat içinde olmalı."); return;
+      }
+    }
     var kontrol = sureHesabi();
     if (kontrol.basZ != null && kontrol.basZ > Date.now() + 5 * 60000) {
       hata("Başlangıç saati şu andan ileride (" + tarihSaat(kontrol.basZ) +
@@ -2695,6 +2834,7 @@
     // --- Kaydı doğrulayan servise gönder (Authenticator girişiyle) ---
     var paket = kayitPaketi(metin, giris, !!dvGerek);
     var yereleYaz = function () {
+      if (acilisMi(yerelKayit.durum)) QR_ZAMAN = null;
       kayitYaz(yerelKayit);
       ilerlemeyiCiz(); listeyiCiz(); adimDurumGoster(secili[0]);
     };
@@ -3125,8 +3265,8 @@ const KB = [
   y:"Evet. Kâğıttaki <b>ONAY / KAŞE</b> sütununa kaşe basma uygulaması aynen sürer.",b:["qr-nerede"]},
  {id:"durumlar",k:"Adım",s:["Başladı Setup Duraklatıldı Tamamlandı ne demek","durumlar ne anlama geliyor","hangi durumu seçmeliyim"],a:["durum","basladi","setup","duraklatildi","tamamlandi","secmeliyim","anlami","ne demek"],
   y:"Her durum ayrı bir kayıttır.",
-  d:["<b>Başladı</b>: işe başladım, üretim sürüyor.","<b>Setup'ta</b>: tezgah hazırlığı yapıyorum.","<b>Duraklatıldı</b>: ara verdim (neden seçilir).","<b>Tamamlandı</b>: adım bitti, sıradaki adıma devir."],
-  b:["kayit-sirasi","setup","durus-neden"]},
+  d:["<b>Başladı</b>: işe başladım, üretim sürüyor.","<b>Setup'ta</b>: tezgah hazırlığı yapıyorum.","<b>Duraklatıldı</b>: ara verdim (neden seçilir).","<b>Süren iş</b>: ben çıkıyorum, tezgah seri işi işlemeye devam ediyor (bitiş saati seçilir).","<b>Tamamlandı</b>: adım bitti, sıradaki adıma devir."],
+  b:["kayit-sirasi","setup","durus-neden","suren-is"]},
  {id:"kayit-sirasi",k:"Adım",s:["Bir adım için hangi sırayla kayıt girerim","kayıt sırası nasıl"],a:["sira","sirayla","hangi sira","kayit sirasi","once","sonra"],
   y:"Bir adım için kayıtlar sırayla girilir.",
   d:["İşe başlarken <span class=ui>Başladı</span> (setup varsa önce <span class=ui>Setup'ta</span>).","Ara verirsen <span class=ui>Duraklatıldı</span>, dönünce yine <span class=ui>Başladı</span>.","Adım bitince <span class=ui>Tamamlandı</span>."],
@@ -3186,9 +3326,9 @@ const KB = [
   y:"Teknik resimden ayrılma, ölçü dışı ürün ya da malzeme farkı varsa <b>Sapma İsteği</b> açılır.",
   d:["<span class=ui>Sapma / uygunsuzluk var</span> anahtarını aç.","<span class=ui>Açıklama</span> zorunludur: hangi ölçü, ne kadar, hangi parçalar.","Varsa etkilenen adet ve talep eden kaşeyi yaz."],b:["hurda"]},
  {id:"saatler",k:"Saat",s:["Saat nasıl girilir","başlangıç saatini düzeltmek","bitiş saati"],a:["saat","baslangic","bitis","tarih","duzelt","simdi"],
-  y:"Tarih ve saat kendiliğinden gelir; gerekirse düğmelerle değiştirirsin.",
-  d:["«Başladı»da şimdiki saat gelir.","Kapatırken başlangıç ilk kaydından (devraldıysan devralma anından), bitiş şimdiden gelir.","<span class=ui>Şimdi</span> · <span class=ui>08:30</span> · <span class=ui>13:45</span> · <span class=ui>18:00</span> düğmeleriyle düzeltebilirsin."],
-  n:"Başlangıç ve bitiş saati şu andan ileri olamaz.",b:["mesai-saatleri","sonradan-giris"]},
+  y:"Tarih ve saat kendiliğinden gelir. «Başladı / Devam ediyor» ve «Setup'ta» başlangıcı QR'ı okuttuğun saattir ve değiştirilemez.",
+  d:["«Başladı»da başlangıç = QR okutma saati (aynı sayfada ikinci açılışta kaydı girdiğin an).","Kapatırken başlangıç ilk kaydından (devraldıysan devralma anından), bitiş şimdiden gelir.","Bitişi <span class=ui>Şimdi</span> · <span class=ui>12:45</span> · <span class=ui>17:30</span> · <span class=ui>21:00</span> düğmeleriyle düzeltebilirsin."],
+  n:"Başlangıç ve bitiş saati şu andan ileri olamaz. İşe gelince önce QR'ı okut.",b:["qr-baslangic","mesai-saatleri","sonradan-giris"]},
  {id:"mesai-saatleri",k:"Saat",s:["Süre hangi saatlerde sayılır","mola süreden düşer mi","mesai saatleri"],a:["mesai","mola","ogle","sayilir","dusulur","calisma saati"],
   y:"Süre yalnız mesai içinde sayılır; molalar kendiliğinden düşülür.",
   d:["Sabah <b>08:30–12:45</b> (10:00–10:20 mola).","Öğleden sonra <b>13:45–17:30</b>.","Hafta içi fazla mesai 18:00'den işaretlenen çıkış saatine kadar (en geç 21:00).","Cumartesi ve Pazar: başlama ve kapatma kayıtlarının arası fazla mesai (molalar düşülür, en geç 21:00)."],b:["fm-haftaici","fm-haftasonu"]},
@@ -3200,8 +3340,8 @@ const KB = [
   d:["Kayıtta <span class=ui>Bugün fazla mesai yapıldı</span> kutusunu işaretle.","Çıkış saatini seç (19:00 · 20:00 · 21:00).","Fazla mesai 18:00'den çıkış saatine kadar sayılır."],
   n:"Kutu kendiliğinden işaretlenmez.",b:["fm-haftasonu","fm-unuttum","mesai-saatleri"]},
  {id:"fm-haftasonu",k:"Fazla mesai",s:["Hafta sonu çalışınca ne yapmalıyım","cumartesi çalıştım","pazar mesai"],a:["hafta sonu","cumartesi","pazar","haftasonu","tatil"],
-  y:"Hafta sonu gelince <span class=ui>Başladı / Devam ediyor</span> gir, işi bitirince ya da ayrılırken <span class=ui>Tamamlandı</span> / <span class=ui>Duraklatıldı</span> gir. O günkü çalışmanın tamamı fazla mesai sayılır.",
-  d:["Süre senin başlama ve kapatma kayıtlarının saatleri arasından alınır (mesai saatleri uygulanmaz; en geç 21:00).","Sabah molası (10:00–10:20) ve öğle arası (12:45–13:45) düşülür.","Ayrıca fazla mesai kutusu işaretlemen gerekmez."],
+  y:"Hafta sonu gelince QR'ı okutup <span class=ui>Başladı / Devam ediyor</span> gir, ayrılırken <span class=ui>Tamamlandı</span> / <span class=ui>Duraklatıldı</span> / <span class=ui>Süren iş</span> gir. O günkü çalışmanın tamamı fazla mesai sayılır.",
+  d:["Başlangıç QR'ı okuttuğun saattir; süre senin başlama ve kapatma kayıtlarının saatleri arasından alınır (08:30–17:30 sabit değil; en geç 21:00).","Sabah molası (10:00–10:20) ve öğle arası (12:45–13:45) düşülür.","Ayrıca fazla mesai kutusu işaretlemen gerekmez."],
   n:"Ayrılırken kayıt girmeyi unutma; kapatma kaydı yoksa süre 21:00'e kadar sayılır.",b:["fm-haftaici","mesai-saatleri","devam-ediyor"]},
  {id:"fm-unuttum",k:"Fazla mesai",s:["Fazla mesai işaretlemeyi unuttum"],a:["unuttum","isaretlemedim","fazla mesai","eksik","sayilmadi"],
   y:"Aynı gün içinde gireceğin bir sonraki kayıtta kutuyu işaretleyip çıkış saatini seç; o gün fazla mesaiye eklenir.",
@@ -3212,7 +3352,19 @@ const KB = [
   n:"Listeye yeni neden yazılmaz; uygun olan yoksa X99 Diğer.",b:["durus-aksam","durus-ariza","durus-takim","durus-malzeme","durus-kalite","durus-organizasyon","durus-diger"]},
  {id:"durus-aksam",k:"Duraklatma",s:["Akşam işi bırakırken ne seçmeliyim","mesai bitti iş yarım kaldı"],a:["aksam","aksam duraklat","mesai bitti","vardiya sonu","eve","birakirken","yarim kaldi","o03"],
   y:"Akşam iş yarım kalıyorsa <span class=ui>Duraklatıldı</span> seçip nedeni <b>O03 · Mesai / vardiya bitimi</b> yap.",
-  i:"Ertesi gün işe dönünce «Başladı» gir; süre kaldığı yerden sayılır.",b:["durus-neden","kayit-sirasi"]},
+  i:"Ertesi gün işe dönünce QR'ı okutup «Başladı» gir; süre kaldığı yerden sayılır. Tezgah sen çıktıktan sonra da işliyorsa «Süren iş» seç.",b:["kapanis-zorunlu","suren-is","durus-neden"]},
+ {id:"suren-is",k:"Adım",s:["Süren iş nedir","mesai bitti tezgah çalışmaya devam ediyor","seri işte makine gece çalışıyor"],a:["suren is","suren","tezgah calisiyor","makine calisiyor","devam ediyor","gozetimsiz","gece","seri is","mesai bitimi","isik"],
+  y:"Seri işte sen çıkarken tezgah işlemeye devam ediyorsa akşam kapanışında <span class=ui>Süren iş</span> seç.",
+  d:["<span class=ui>Süren iş</span>'e dokun; <b>Bitiş</b> = senin çıkış saatin.","<b>Tezgahın bitiş saati</b>ni seç (zorunlu): tezgahın işi bitireceği / durduğu saat.","Tezgahı seç, o ana kadar biten iyi adedi gir, <span class=ui>Kaydet ve Gönder</span>.","Sabah QR'ı okutup «Başladı / Devam ediyor» gir."],
+  n:"Tezgahın bu süresi parça, iş emri ve tezgah süresine girer (panoda mor çizgili); senin çalışma sürene ve fazla mesaiye girmez.",b:["kapanis-zorunlu","durus-aksam","parca-basina-sure"]},
+ {id:"kapanis-zorunlu",k:"Adım",s:["Akşam kapanış zorunlu mu","Kapanış girilmemiş uyarısı","dün kapatmayı unuttum"],a:["kapanis","kapanis girilmemis","kapanis eksik","kapatmayi unuttum","aksam kaydi","cikis kaydi","zorunlu","dun","once kapanis"],
+  y:"Her akşam açık adımına kapanış girmek zorunlu: <span class=ui>Duraklatıldı · O03</span>, <span class=ui>Süren iş</span> ya da <span class=ui>Tamamlandı</span>.",
+  d:["Unuttuysan ertesi sabah telefon önce o kapanışı ister; diğer kayıtlar kilitli kalır.","Adımı seç: «Başladı» gizlenir, «Duraklatıldı · O03» hazır gelir; Bitiş tarihi o gündür, saatini seç (varsayılan 17:30).","Kapanışı gönderdikten sonra bugün için «Başladı / Devam ediyor» gir."],
+  n:"Başka iş emrinde açık kalan adımın varsa sunucu «Önce önceki günün kapanışını girin» der; o iş emrinin QR'ını okutup kapat. Panoda ve gün sonu mailinde «Kapanış girilmemiş» olarak görünür.",b:["durus-aksam","suren-is","devam-ediyor"]},
+ {id:"qr-baslangic",k:"Saat",s:["Başlangıç saati neden değişmiyor","giriş saatim nereden geliyor","geç geldim saat"],a:["giris saati","baslangic saati","degismiyor","degistiremiyorum","qr saati","gelis","gec geldim","erken geldim"],
+  y:"«Başladı / Devam ediyor» ve «Setup'ta» kaydının başlangıcı QR'ı okuttuğun andır; elle değiştirilemez.",
+  d:["İşe gelince ilk iş QR'ı okut.","Aynı sayfada ikinci açılış kaydında (ör. öğleden sonra devam) başlangıç kaydı gönderdiğin andır.","Sayfa 4 saatten uzun açık kaldıysa da gönderdiğin an kullanılır."],
+  n:"Hafta sonu da aynı: süre senin QR / kayıt saatlerinden alınır.",b:["saatler","devam-ediyor","fm-haftasonu"]},
  {id:"durus-diger",k:"Duraklatma",s:["Neden listede yok","diğer seçeneği"],a:["diger","x99","listede yok","uygun yok","aciklama"],
   y:"Uygun neden yoksa <b>X99 · Diğer</b> seç ve kısa bir açıklama yaz; açıklama zorunludur.",b:["durus-neden"]},
  {id:"durus-ariza",k:"Duraklatma",s:["Tezgah arıza yaptı","makine bozuldu","arıza kodu"],a:["ariza","bozuldu","makine bozuk","alarm","is mili","eksen","carpisma","crash"],
@@ -3313,8 +3465,8 @@ const KB = [
   y:"Telefona yalnız iş emri, kalem, rota adım adları ve sicil numarası gelir / gider.",
   d:["Teknik resim ve işlem açıklamaları QR'da yer almaz.","Authenticator kodu yalnız girişte kullanılır, hiçbir yerde saklanmaz."],b:["guvenlik","giris"]},
  {id:"devam-ediyor",k:"Adım",s:["Ertesi gün işe devam ederken ne girmeliyim","Başladı / Devam ediyor nedir","dünden açık adım"],a:["devam ediyor","devam ediyorum","ertesi gun","dunden acik","her sabah","yoklama","hastalik","izin","rapor","gelmedim"],
-  y:"Adımın dünden ya da daha önceki bir günden açık kaldıysa, işe döndüğün gün <span class=ui>Başladı / Devam ediyor</span> kaydını gönder.",
-  d:["Adımı seç; «Bu adımın son kaydı … tarihli» uyarısı çıkar.","<span class=ui>Devam ediyorum</span>'a dokun, tezgahı seç, <span class=ui>Kaydet ve Gönder</span>.","Süre o günün bu kaydın saatinden itibaren sayılır."],
+  y:"Her sabah işe gelince QR'ı okutup <span class=ui>Başladı / Devam ediyor</span> kaydını gönder (dün Duraklatıldı / Süren iş ile kapattığın adım için).",
+  d:["Adımı seç; «Bu adımın son kaydı … tarihli» uyarısı çıkar.","<span class=ui>Devam ediyorum</span>'a dokun, tezgahı seç, <span class=ui>Kaydet ve Gönder</span>.","Süre QR'ı okuttuğun saatten itibaren sayılır.","Dün akşam kapanış girmediysen önce o kapanış istenir."],
   n:"Göndermezsen o günün süresi sayılmaz. Hastalık, izin gibi gelmediğin günlerde iş «sürüyor» görünmez.",b:["kayit-sirasi","durus-aksam","mesai-saatleri"]},
  {id:"alt-tuslar",k:"Gönderme",s:["Alttaki tuşa basınca sayfa kayıyor","Kaydet ve Gönder tuşu basmıyor","tuşlar küçük"],a:["alt tus","alttaki tus","tus basmiyor","sayfa kayiyor","ekran kayiyor","kaydet tusu","dokunmatik","iphone"],
   y:"Alt çubuktaki tuşlar büyütüldü; tuşa dokunurken sayfa artık kaymaz, parmak biraz kaysa da dokunuş sayılır.",
@@ -3368,6 +3520,9 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Süren iş","suren is",["süren iş","tezgah çalışmaya devam","makine çalışmaya devam","gözetimsiz","ışıksız","gece çalışıyor","tezgah çalışıyor","seri iş devam"]],
+ ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
+ ["QR saati","qr saati",["giriş saati","başlangıç saati","geliş saati","işe geliş","saat değişmiyor","QR saati"]],
  ["İlk parça süresi","ilk parca suresi",["ilk parça süresi","ilk parçanın süresi","ilk parça ne kadar sürdü","birinci parça"]],
  ["Parça başına süre","parca basina",["parça başı","birim süre","çevrim süresi","parça süresi","adet başına","tane başına"]],
  ["Dönem filtresi","donem",["son 7 gün","7 gün","dönem","filtre","son 30 gün","tarih aralığı"]],
