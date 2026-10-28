@@ -3489,6 +3489,10 @@ const KB = [
   y:"Henüz kaydı olmayan adımın yerini ▲ / ▼ ile ya da <span class=ui>Sırayı düzenle</span> ile sürükleyerek değiştirirsin.",
   d:["Proses bloğu birlikte taşınır; 4'ü taşırsan 4.1 onunla gider.","4.1'i seçersen tek başına taşınır (5'in altında 5.1 görünür).","<span class=ui>Sıra değişikliğini geri al</span> ile önceki sıraya dönersin."],
   n:"Tamamlanmış ya da başlamış adımın yeri değiştirilemez.",b:["sira-degisti","yonetici-gerekce"]},
+ {id:"pano-telefon",k:"Yönetici",r:["yonetici"],s:["Panoyu telefonda nasıl kullanırım","pano alt menü küçük","panoda en üste çıkmak"],a:["pano telefon","alt menu","menu kucuk","en uste","yukari cik","saate dokun","kaydir","cetvel"],
+  y:"Telefonda panonun alt menüsü yatay bir cetveldir: sağa-sola kaydır, ortadaki bölüm büyür ve adı yazar; kaydırma durunca o bölüm açılır.",
+  d:["Bir simgeye dokunursan ortaya gelir ve açılır.","Açık bölümün simgesine <b>tekrar dokununca</b> sayfa en üste çıkar.","Aşağı inince sağ altta <span class=ui>▲</span> düğmesi çıkar; o da en üste götürür."],
+  n:"Pano Google Apps Script çerçevesinde açıldığı için iPhone'da saate dokunup en üste çıkma çalışmaz.",b:["pano","yonetici-kim"]},
  {id:"yonetici-paralel",k:"Yönetici",r:["yonetici"],s:["İki adımı paralel nasıl yaparım","adımları aynı anda yürütmek","paraleli kaldırmak"],a:["paralel","paralel yap","ayni anda","es zamanli","birlikte","paraleli kaldir","iki tezgah"],
   y:"Adımı seç, yönetici kutusunda <span class=ui>∥ … ile … paralel</span>'e dokun, gerekçe yazıp onayla: seçili adım ile sonraki ana adım paralel olur.",
   d:["Üç adım için ikinci adımı seçip yine «paralel» de; gruplar birleşir.","Paralel adımlar rotada yan yana olmalı; değilse önce ▲ / ▼ ile yan yana getir.","Gruptaki her adım, grubun önündeki adım kapanınca açılır; gruptan sonraki adım grubun hepsi kapanınca açılır.","<span class=ui>Paraleli kaldır</span>: adımlar birlikte açıkken kaldırılamaz, öncekiler kapanınca kaldırılır."],
@@ -3607,6 +3611,8 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Alt menü","alt menu",["alt menü","alt sekmeler","sekme çubuğu","menü çubuğu","cetvel","alttaki tuşlar"]],
+ ["En üste","en uste",["en üste","yukarı çık","başa dön","sayfa başı","saate dokun","tepeye"]],
  ["Paralel adım","paralel",["paralel","aynı anda","eş zamanlı","birlikte yürüyen","paralel rota","iki adım birden","∥"]],
  ["Süren iş","suren is",["süren iş","tezgah çalışmaya devam","makine çalışmaya devam","gözetimsiz","ışıksız","gece çalışıyor","tezgah çalışıyor","seri iş devam"]],
  ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
