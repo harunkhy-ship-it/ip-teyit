@@ -496,6 +496,10 @@
           <button type="button" id="yk-asagi">▼ Aşağı taşı</button>
           <button type="button" id="yk-sira-geri" hidden>Sıra değişikliğini geri al</button>
         </div>
+        <div class="yk-dugmeler" style="margin-top:8px">
+          <button type="button" id="yk-paralel">∥ Sonraki adımla paralel yap</button>
+          <button type="button" id="yk-paralel-kaldir" hidden>Paraleli kaldır</button>
+        </div>
         <p class="not" id="yk-sira-yazi" style="margin:6px 0 0"></p>
         <div id="yk-onay" hidden>
           <textarea id="yk-gerekce" maxlength="300" placeholder="Gerekçe (zorunlu)"></textarea>
@@ -1304,7 +1308,9 @@
     ykIslem = islem;
     $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
     $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
-    $("#yk-gonder").textContent = islem.sira === "TASI" ? "Onayla: " + islem.yazi
+    $("#yk-gonder").textContent = islem.paralel === "YAP" ? "Onayla: paralel yap (" + islem.yazi + ")"
+      : islem.paralel === "KALDIR" ? "Onayla: paraleli kaldır (" + islem.yazi + ")"
+      : islem.sira === "TASI" ? "Onayla: " + islem.yazi
       : islem.sira === "GERIAL" ? "Onayla: sıra değişikliğini geri al"
       : islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
       : islem.iptalKaldir ? "Onayla: iptali kaldır" : "Onayla: son kaydı geri al";
@@ -1367,7 +1373,24 @@
     return { yeni: [].concat.apply([], b).map(function (x) { return x[0]; }),
              yazi: ad(b[hi]) + " ↔ " + ad(b[ui]) };
   }
+  function paralelDugmeleri(no) {
+    var gr = paralelGrubu(no), s = sonrakiAnaAdim(no), alt = altAdimMi(no);
+    var zaten = s && gr && gr.indexOf(s[0]) >= 0;
+    $("#yk-paralel").disabled = alt || !s || !!zaten;
+    $("#yk-paralel").textContent = s && !alt ? "∥ " + gNo(no) + " ile " + gNo(s[0]) + " paralel" : "∥ Sonraki adımla paralel yap";
+    $("#yk-paralel-kaldir").hidden = !gr;
+  }
+  $("#yk-paralel").addEventListener("click", function () {
+    var s = secili && sonrakiAnaAdim(secili[0]);
+    if (s) ykBasla({ paralel: "YAP", adimlar: [secili[0], s[0]],
+                     yazi: gNo(secili[0]) + " · " + secili[1] + " ∥ " + gNo(s[0]) + " · " + s[1] });
+  });
+  $("#yk-paralel-kaldir").addEventListener("click", function () {
+    var gr = secili && paralelGrubu(secili[0]);
+    if (gr) ykBasla({ paralel: "KALDIR", adim: secili[0], yazi: gr.map(gNo).join(" ∥ ") });
+  });
   function siraDugmeleri(no) {
+    paralelDugmeleri(no);
     var y = siraTasi(no, -1), a = siraTasi(no, 1);
     $("#yk-yukari").disabled = !!y.engel; $("#yk-asagi").disabled = !!a.engel;
     $("#yk-sira-geri").hidden = !(sunucu.sira && sunucu.sira.length);
@@ -1493,6 +1516,7 @@
         b.disabled = false;
         if (!r || !r.ok) { h.textContent = siraHataYazisi(r); h.hidden = false; sunucuYukle(); return; }
         sunucu.sira = r.sira || null; sunucu.adimlar = r.adimlar || sunucu.adimlar;
+        if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
         sunucu.zaman = Date.now(); sunucu.hal = "tamam";
         $("#sira-duzen").hidden = true; sdBirimler = null;
         siraUygula(); yenidenCiz(); sdAcKapa();
@@ -1502,11 +1526,18 @@
   });
 
   function siraGonder(g, grk, b, h) {
-    var govde = ykIslem.sira === "TASI"
+    var qrListe = is.aQR.map(function (x) { return x[0]; });
+    var govde = ykIslem.paralel === "YAP"
+      ? { islem: "paralelYap", jeton: g.jeton, ie: is.ie, gerekce: grk, adimlar: ykIslem.adimlar,
+          qr: is.a.map(function (x) { return x[0]; }) }
+      : ykIslem.paralel === "KALDIR"
+      ? { islem: "paralelKaldir", jeton: g.jeton, ie: is.ie, gerekce: grk, adim: ykIslem.adim,
+          qr: is.a.map(function (x) { return x[0]; }) }
+      : ykIslem.sira === "TASI"
       ? { islem: "siraDegistir", jeton: g.jeton, ie: is.ie, gerekce: grk,
           eski: is.a.map(function (x) { return x[0]; }), yeni: ykIslem.yeni }
       : { islem: "siraGeriAl", jeton: g.jeton, ie: is.ie, gerekce: grk,
-          qr: is.aQR.map(function (x) { return x[0]; }) };
+          qr: qrListe };
     b.disabled = true;
     servisPost(govde).then(function (r) {
       b.disabled = false;
@@ -1517,6 +1548,7 @@
       }
       ykIslem = null; $("#yk-onay").hidden = true;
       sunucu.sira = r.sira || null; sunucu.adimlar = r.adimlar || sunucu.adimlar;
+      if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
       sunucu.zaman = Date.now(); sunucu.hal = "tamam";
       siraUygula(); yenidenCiz();
     }).catch(function () {
@@ -1541,7 +1573,7 @@
     h.hidden = true;
     if (!g || !secili || !ykIslem) return;
     if (!grk) { h.textContent = "Gerekçe yazın."; h.hidden = false; return; }
-    if (ykIslem.sira) { siraGonder(g, grk, b, h); return; }
+    if (ykIslem.sira || ykIslem.paralel) { siraGonder(g, grk, b, h); return; }
     var p = ["MUIF"];
     function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
     ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
@@ -1646,6 +1678,7 @@
       if (!is || is.ie !== ie) return;
       sunucu.adimlar = (v && v.adimlar) || {};
       sunucu.sira = (v && v.sira) || null;
+      sunucu.paralel = (v && v.paralel) || [];
       siraUygula();
       sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
         return !!sunucu.adimlar[k].kidler; });
@@ -1697,6 +1730,15 @@
       return { once: once, anaBekle: true,
                yazi: "Ara ölçüm, bağlı olduğu ana adım (" + gNo(once[0]) + " · " + once[1] + ") başlamışken açılır. " +
                      "O adımın durumu «" + (od ? DURUM_AD[od.durum] : "Başlamadı") + "»." + neden0 };
+    }
+    var gerek = oncekiGerekli(no) || [once[0]];
+    if (gerek.length > 1 || paralelGrubu(no)) {
+      var acik = gerek.filter(function (n) { return !(k[n] && kapaliMi(k[n].durum)); });
+      if (!acik.length) return null;
+      if (gerek.length > 1) return { once: once, yazi: "Paralel adımların hepsi kapanmadı: " + acik.map(function (n) {
+        var x = secilenAdim(n); return gNo(n) + (x ? " · " + x[1] : ""); }).join(", ") +
+        ". Hepsi «Tamamlandı» olmadan bu adıma kayıt açılamaz." + neden0 };
+      if (gerek[0] !== once[0]) { once = secilenAdim(gerek[0]) || once; od = k[once[0]]; }
     }
     if (od && kapaliMi(od.durum)) return null;
     var neden = !DURUM_SERVISI ? " (Bu telefonun kayıtlarına göre.)"
@@ -1857,7 +1899,9 @@
       var adEl = document.createElement("span");
       adEl.className = "ad"; adEl.textContent = ad;
       var altEl = document.createElement("span");
+      var pgr = paralelGrubu(no);
       altEl.className = "alt"; altEl.textContent = icdis + (tasinan[no] ? "  ↕ sıra değişti" : "") +
+                                                   (pgr ? "  ∥ paralel: " + pgr.map(gNo).join(" ∥ ") : "") +
                                                    (gNo(no) !== no ? " · İP'de " + no : "");
       orta.appendChild(adEl); orta.appendChild(altEl);
       var cip = document.createElement("span");
@@ -1901,6 +1945,28 @@
     faiSonuc = faiSonuc === b.dataset.deger ? "" : b.dataset.deger;
     [].forEach.call(this.querySelectorAll("button"), function (y) { y.setAttribute("aria-pressed", y.dataset.deger === faiSonuc ? "true" : "false"); });
   });
+  /* Paralel adımlar (yönetici işaretler): grubun önündeki adım kapanınca gruptaki her adım açılır;
+     gruptan sonraki adım grubun TÜM adımları kapanınca açılır. */
+  function paralelGrubu(no) {
+    var l = (sunucu && sunucu.paralel) || [];
+    for (var i = 0; i < l.length; i++) if (l[i].indexOf(no) >= 0) return l[i];
+    return null;
+  }
+  function oncekiGerekli(no) {          // kapanmış olması gereken adımlar (ana adım için)
+    var ana = is.a.filter(function (x) { return !altAdimMi(x[0]); }).map(function (x) { return x[0]; });
+    var ilk = ana.indexOf(no);
+    if (ilk < 0) return null;
+    var gr = paralelGrubu(no);
+    if (gr) gr.forEach(function (x) { var i = ana.indexOf(x); if (i >= 0 && i < ilk) ilk = i; });
+    if (ilk <= 0) return [];
+    var onc = ana[ilk - 1];
+    return paralelGrubu(onc) || [onc];
+  }
+  function sonrakiAnaAdim(no) {
+    var i = is.a.findIndex(function (x) { return x[0] === no; });
+    for (var j = i + 1; j < is.a.length; j++) if (!altAdimMi(is.a[j][0])) return is.a[j];
+    return null;
+  }
   function oncekiAdimNo(no) {           // önceki ANA adım (ara ölçüm paralel)
     var i = is.a.findIndex(function (x) { return x[0] === no; });
     for (var j = i - 1; j >= 0; j--) if (!altAdimMi(is.a[j][0])) return is.a[j][0];
@@ -1970,6 +2036,8 @@
       else y += " — adım kapandı; gerekirse düzeltme kaydı açabilirsiniz.";
       if (liste.length > 1) y += " (bu adımda " + liste.length + " kayıt)";
     }
+    var pgd = paralelGrubu(no);
+    if (pgd) y += " ∥ Paralel: " + pgd.map(gNo).join(" ∥ ") + " — her adıma ayrı kişi kendi başlangıcını girer.";
     $("#adim-durum-yazi").textContent = y;
     return d;
   }
@@ -2769,6 +2837,15 @@
     }
     var engel = siraEngeli(secili[0]);
     if (engel) { hata(engel.yazi); return; }
+    var pgk = acilisMi(durum.durum) && paralelGrubu(secili[0]);
+    if (pgk) {
+      var ikinci = pgk.filter(function (n) {
+        var u = sunucu.adimlar[n]; return n !== secili[0] && u && acilisMi(u.durum) && u.son_kase === kase; })[0];
+      if (ikinci) {
+        hata("Paralel adım " + gNo(ikinci) + " sizde açık. Aynı anda iki paralel adımda çalışılmaz: önce o adımı " +
+             "«Duraklatıldı» ya da «Tamamlandı» yapın."); return;
+      }
+    }
     var kpl = kapanisListesi(), kpu = kapanisEksik(secili[0]);
     if (kpl.length && !kpu) { hata($("#kapanis-yazi").textContent || "Önce önceki günün kapanışını girin."); return; }
     if (kpu && KAPANIS_DURUM.indexOf(durum.durum) < 0) {
@@ -2934,7 +3011,8 @@
       kayit: { ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: durum.durum,
                iyi: a.A5, sapma: a.A6, metin: metin, isl: a.A8, setup: a.A9,
                devral: devral, olusma: Date.now(), altyapi: secili[2] || "",
-               onceki_no: oncekiAdimNo(secili[0]), fai_adim_ad: faiSonuc && faiAna ? faiAna[1] : "" }
+               onceki_no: oncekiAdimNo(secili[0]), onceler: altAdimMi(secili[0]) ? null : oncekiGerekli(secili[0]),
+               fai_adim_ad: faiSonuc && faiAna ? faiAna[1] : "" }
     };
   }
 
@@ -2966,6 +3044,7 @@
       if (r.adimlar && is && is.ie === paket.ie) {
         sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
         if (r.sira !== undefined) { sunucu.sira = r.sira || null; siraUygula(); }
+        if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
         sunucu.kidliMi = true; sunucu.iyiliMi = true;
         setTimeout(yenidenCiz, 0);
       }
@@ -3410,6 +3489,14 @@ const KB = [
   y:"Henüz kaydı olmayan adımın yerini ▲ / ▼ ile ya da <span class=ui>Sırayı düzenle</span> ile sürükleyerek değiştirirsin.",
   d:["Proses bloğu birlikte taşınır; 4'ü taşırsan 4.1 onunla gider.","4.1'i seçersen tek başına taşınır (5'in altında 5.1 görünür).","<span class=ui>Sıra değişikliğini geri al</span> ile önceki sıraya dönersin."],
   n:"Tamamlanmış ya da başlamış adımın yeri değiştirilemez.",b:["sira-degisti","yonetici-gerekce"]},
+ {id:"yonetici-paralel",k:"Yönetici",r:["yonetici"],s:["İki adımı paralel nasıl yaparım","adımları aynı anda yürütmek","paraleli kaldırmak"],a:["paralel","paralel yap","ayni anda","es zamanli","birlikte","paraleli kaldir","iki tezgah"],
+  y:"Adımı seç, yönetici kutusunda <span class=ui>∥ … ile … paralel</span>'e dokun, gerekçe yazıp onayla: seçili adım ile sonraki ana adım paralel olur.",
+  d:["Üç adım için ikinci adımı seçip yine «paralel» de; gruplar birleşir.","Paralel adımlar rotada yan yana olmalı; değilse önce ▲ / ▼ ile yan yana getir.","Gruptaki her adım, grubun önündeki adım kapanınca açılır; gruptan sonraki adım grubun hepsi kapanınca açılır.","<span class=ui>Paraleli kaldır</span>: adımlar birlikte açıkken kaldırılamaz, öncekiler kapanınca kaldırılır."],
+  n:"Sıra değişikliği paralel grubu ayıramaz. Panoda adımın altında «∥ paralel» ve geçmişte gerekçesi görünür.",b:["yonetici-sira","paralel-adim","yonetici-gerekce"]},
+ {id:"paralel-adim",k:"Adım",s:["Paralel adım nedir","önceki adım bitmeden nasıl başlarım","∥ paralel yazıyor"],a:["paralel","ayni anda","es zamanli","birlikte","paralel rota","once bitmeden"],
+  y:"Listede <b>∥ paralel</b> yazan adımlar aynı anda yürür: önceki paralel adım bitmeden kendi adımına «Başladı» girebilirsin.",
+  d:["Her adıma <b>ayrı kişi</b> kendi başlangıcını girer (QR'ı okuttuğu saat).","Aynı kişi iki paralel adımı aynı anda açamaz; diğerine geçmek için önce açık olanı «Duraklatıldı» ya da «Tamamlandı» yap.","Gruptan sonraki adım, paralel adımların <b>hepsi</b> «Tamamlandı» olunca açılır."],
+  n:"Paralel işaretini yalnız yönetici (planlama) koyar.",b:["sira-kurali","kayit-sirasi","yonetici-paralel"]},
  {id:"yonetici-gerekce",k:"Yönetici",r:["yonetici"],s:["Yönetici işlemleri kayıt siler mi","gerekçe zorunlu mu"],a:["gerekce","silinir mi","kayit silme","iz","log"],
   y:"Hiçbir kayıt silinmez; her yönetici işlemi gerekçesi, sicili ve saatiyle ayrı satır olarak yazılır. İşlem «Onayla» ile gönderilir, «Vazgeç» ile bırakılır.",i:"Yönetici işlemleri bağlantı ister; çevrimdışıyken bekletilmez.",b:["yonetici-iptal","yonetici-geri-al"]},
  {id:"pano",k:"Yönetici",s:["Pano kimde","dashboard nereden açılır","panoya erişim"],a:["pano","dashboard","rapor","ekran","grafik"],
@@ -3520,6 +3607,7 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Paralel adım","paralel",["paralel","aynı anda","eş zamanlı","birlikte yürüyen","paralel rota","iki adım birden","∥"]],
  ["Süren iş","suren is",["süren iş","tezgah çalışmaya devam","makine çalışmaya devam","gözetimsiz","ışıksız","gece çalışıyor","tezgah çalışıyor","seri iş devam"]],
  ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
  ["QR saati","qr saati",["giriş saati","başlangıç saati","geliş saati","işe geliş","saat değişmiyor","QR saati"]],
