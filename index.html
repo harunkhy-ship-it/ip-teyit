@@ -139,6 +139,10 @@
   .cip.dur{background:var(--hata-soft); color:var(--hata)}
   .cip.setup{background:var(--vurgu-soft); color:var(--vurgu)}
   .cip.suren{background:#ECE8FE; color:#5B3FE0}
+  .setup-her{display:flex; gap:10px; align-items:flex-start; margin-top:12px; padding:12px; border-radius:12px;
+    background:var(--vurgu-soft); border:1px solid var(--cizgi2); font-size:14px; line-height:1.4; cursor:pointer}
+  .setup-her input{width:22px; height:22px; flex:0 0 22px; margin-top:1px}
+  .setup-her small{display:block; color:var(--ink2); font-size:12.5px; margin-top:3px}
   .suren-kutu{margin-top:12px; padding:12px; border-radius:12px; background:#F3F0FF; border:1px solid #CFC5FB}
   .suren-kutu .etiket{color:#4A31C9}
   input:disabled{opacity:.75}
@@ -500,8 +504,17 @@
           <button type="button" id="yk-paralel">∥ Sonraki adımla paralel yap</button>
           <button type="button" id="yk-paralel-kaldir" hidden>Paraleli kaldır</button>
         </div>
+        <div class="yk-dugmeler" style="margin-top:8px">
+          <button type="button" id="yk-ekle">＋ Bu adımdan sonra adım ekle</button>
+          <button type="button" id="yk-ekle-kaldir" hidden>Eklenen adımı kaldır</button>
+        </div>
         <p class="not" id="yk-sira-yazi" style="margin:6px 0 0"></p>
         <div id="yk-onay" hidden>
+          <div id="yk-ekle-alan" hidden>
+            <input type="text" id="yk-ekle-ad" maxlength="80" autocomplete="off" placeholder="Eklenecek adımın adı (ör. Hassas Taşlama)"
+                   style="width:100%; margin-top:8px; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink); box-sizing:border-box">
+            <select id="yk-ekle-alt" style="width:100%; margin-top:8px; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)"></select>
+          </div>
           <textarea id="yk-gerekce" maxlength="300" placeholder="Gerekçe (zorunlu)"></textarea>
           <div class="yk-dugmeler" style="margin-top:8px">
             <button type="button" class="tehlike" id="yk-gonder">Onayla</button>
@@ -592,6 +605,17 @@
             <small id="tezgah-not" class="not" style="margin:4px 0 0" hidden></small>
           </label>
         </div>
+        <label class="alan" id="raf-alan" style="margin-top:12px" hidden>
+          <span class="etiket">Raf (depo konumu)</span>
+          <input type="text" id="raf" maxlength="40" autocomplete="off" placeholder="Depocu girer (ör. G-5)">
+          <small id="raf-not" class="not" style="margin:4px 0 0"></small>
+        </label>
+        <label class="setup-her" id="setup-her-alan" hidden>
+          <input type="checkbox" id="setup-her">
+          <span><b>Setup her parçada tekrarlanıyor</b> — bu setup süresi sonraki parçalarda da aynı sayılsın.
+            <small>Robofil 440 / Cut P550: her parça için ayrı bağlama yapılıyorsa işaretleyin; setup süresi tüm parçalar için
+            ayrı tutulur (işlemeden düşülür).</small></span>
+        </label>
         <p class="not">Sicil numarası <b>Authenticator girişinizden</b> gelir ve değiştirilemez:
           kayıt yalnız giriş yapan kişi adına yazılır.</p>
         <div class="ikili zaman-ikili" style="margin-top:12px">
@@ -1306,9 +1330,12 @@
   }
   function ykBasla(islem) {
     ykIslem = islem;
+    $("#yk-ekle-alan").hidden = islem.ekle !== "YAP";
     $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
     $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
-    $("#yk-gonder").textContent = islem.paralel === "YAP" ? "Onayla: paralel yap (" + islem.yazi + ")"
+    $("#yk-gonder").textContent = islem.ekle === "YAP" ? "Onayla: " + islem.yazi + " sonrasına adım ekle"
+      : islem.ekle === "KALDIR" ? "Onayla: eklenen adımı kaldır (" + islem.yazi + ")"
+      : islem.paralel === "YAP" ? "Onayla: paralel yap (" + islem.yazi + ")"
       : islem.paralel === "KALDIR" ? "Onayla: paraleli kaldır (" + islem.yazi + ")"
       : islem.sira === "TASI" ? "Onayla: " + islem.yazi
       : islem.sira === "GERIAL" ? "Onayla: sıra değişikliğini geri al"
@@ -1322,13 +1349,14 @@
   function siraUygula() {
     if (!is || !is.aQR) return;
     var q = is.aQR, l = q;
+    var ek = (sunucu.eklenen || []).map(function (e) { return [String(e[0]), e[1] || "", e[2] || ""]; });
     if (sunucu.sira && sunucu.sira.length) {
-      var m = {}; q.forEach(function (x) { m[x[0]] = x; });
+      var m = {}; q.concat(ek).forEach(function (x) { m[x[0]] = x; });
       l = sunucu.sira.map(function (no) { return m[no]; }).filter(Boolean);
-      q.forEach(function (x) { if (l.indexOf(x) < 0) l.push(x); });
-    }
+      q.concat(ek).forEach(function (x) { if (l.indexOf(x) < 0) l.push(x); });
+    } else if (ek.length) l = q.concat(ek);
     tasinan = {};
-    l.forEach(function (x, i) { if (q[i] !== x) tasinan[x[0]] = true; });
+    l.forEach(function (x, i) { if (q[i] !== x && q.indexOf(x) >= 0) tasinan[x[0]] = true; });
     is.a = l.slice();
     gorunen = gorunenNumaralar(is.a);
   }
@@ -1373,7 +1401,30 @@
     return { yeni: [].concat.apply([], b).map(function (x) { return x[0]; }),
              yazi: ad(b[hi]) + " ↔ " + ad(b[ui]) };
   }
+  function eklenenMi(no) { return (sunucu.eklenen || []).some(function (e) { return String(e[0]) === no; }); }
+  function ekleDugmeleri(no) {
+    var alt = altAdimMi(no);
+    $("#yk-ekle").disabled = alt;
+    $("#yk-ekle").textContent = alt ? "＋ Adım ekle (ana adımı seçin)" : "＋ " + gNo(no) + "'den sonra adım ekle";
+    $("#yk-ekle-kaldir").hidden = !eklenenMi(no);
+  }
+  $("#yk-ekle").addEventListener("click", function () {
+    if (!secili || altAdimMi(secili[0])) return;
+    var sel = $("#yk-ekle-alt"), liste = [];
+    (is.aQR || is.a).forEach(function (x) { if (x[2] && liste.indexOf(x[2]) < 0) liste.push(x[2]); });
+    if (secili[2] && liste.indexOf(secili[2]) < 0) liste.unshift(secili[2]);
+    sel.textContent = "";
+    liste.forEach(function (a) { var o = document.createElement("option"); o.value = a; o.textContent = a; sel.appendChild(o); });
+    sel.value = secili[2] || liste[0] || "";
+    $("#yk-ekle-ad").value = "";
+    ykBasla({ ekle: "YAP", sonra: secili[0], yazi: gNo(secili[0]) + " · " + secili[1] });
+    $("#yk-ekle-ad").focus();
+  });
+  $("#yk-ekle-kaldir").addEventListener("click", function () {
+    if (secili && eklenenMi(secili[0])) ykBasla({ ekle: "KALDIR", adim: secili[0], yazi: gNo(secili[0]) + " · " + secili[1] });
+  });
   function paralelDugmeleri(no) {
+    ekleDugmeleri(no);
     var gr = paralelGrubu(no), s = sonrakiAnaAdim(no), alt = altAdimMi(no);
     var zaten = s && gr && gr.indexOf(s[0]) >= 0;
     $("#yk-paralel").disabled = alt || !s || !!zaten;
@@ -1517,6 +1568,7 @@
         if (!r || !r.ok) { h.textContent = siraHataYazisi(r); h.hidden = false; sunucuYukle(); return; }
         sunucu.sira = r.sira || null; sunucu.adimlar = r.adimlar || sunucu.adimlar;
         if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
+        if (r.eklenen !== undefined) { sunucu.eklenen = r.eklenen || []; siraUygula(); }
         sunucu.zaman = Date.now(); sunucu.hal = "tamam";
         $("#sira-duzen").hidden = true; sdBirimler = null;
         siraUygula(); yenidenCiz(); sdAcKapa();
@@ -1527,7 +1579,12 @@
 
   function siraGonder(g, grk, b, h) {
     var qrListe = is.aQR.map(function (x) { return x[0]; });
-    var govde = ykIslem.paralel === "YAP"
+    var govde = ykIslem.ekle === "YAP"
+      ? { islem: "adimEkle", jeton: g.jeton, ie: is.ie, gerekce: grk, sonra: ykIslem.sonra,
+          ad: $("#yk-ekle-ad").value.trim(), alt: $("#yk-ekle-alt").value, qr: is.a.map(function (x) { return x[0]; }) }
+      : ykIslem.ekle === "KALDIR"
+      ? { islem: "adimKaldir", jeton: g.jeton, ie: is.ie, gerekce: grk, adim: ykIslem.adim, qr: is.a.map(function (x) { return x[0]; }) }
+      : ykIslem.paralel === "YAP"
       ? { islem: "paralelYap", jeton: g.jeton, ie: is.ie, gerekce: grk, adimlar: ykIslem.adimlar,
           qr: is.a.map(function (x) { return x[0]; }) }
       : ykIslem.paralel === "KALDIR"
@@ -1549,6 +1606,7 @@
       ykIslem = null; $("#yk-onay").hidden = true;
       sunucu.sira = r.sira || null; sunucu.adimlar = r.adimlar || sunucu.adimlar;
       if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
+      if (r.eklenen !== undefined) sunucu.eklenen = r.eklenen || [];
       sunucu.zaman = Date.now(); sunucu.hal = "tamam";
       siraUygula(); yenidenCiz();
     }).catch(function () {
@@ -1566,14 +1624,17 @@
     var u = secili && sunucu.adimlar[secili[0]];
     if (u && u.son_kid) ykBasla({ durum: "GERIAL", ref: u.son_kid });
   });
-  $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; });
+  $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; $("#yk-ekle-alan").hidden = true; });
   $("#yk-gonder").addEventListener("click", function () {
     var g = girisOku(), b = this, h = $("#yk-hata");
     var grk = $("#yk-gerekce").value.replace(/[|\n\r]/g, " ").trim();
     h.hidden = true;
     if (!g || !secili || !ykIslem) return;
     if (!grk) { h.textContent = "Gerekçe yazın."; h.hidden = false; return; }
-    if (ykIslem.sira || ykIslem.paralel) { siraGonder(g, grk, b, h); return; }
+    if (ykIslem.ekle === "YAP" && $("#yk-ekle-ad").value.trim().length < 2) {
+      h.textContent = "Eklenecek adımın adını yazın."; h.hidden = false; $("#yk-ekle-ad").focus(); return;
+    }
+    if (ykIslem.sira || ykIslem.paralel || ykIslem.ekle) { siraGonder(g, grk, b, h); return; }
     var p = ["MUIF"];
     function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
     ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
@@ -1679,6 +1740,7 @@
       sunucu.adimlar = (v && v.adimlar) || {};
       sunucu.sira = (v && v.sira) || null;
       sunucu.paralel = (v && v.paralel) || [];
+      sunucu.eklenen = (v && v.eklenen) || [];
       siraUygula();
       sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
         return !!sunucu.adimlar[k].kidler; });
@@ -1773,15 +1835,27 @@
     var g = girisGoster(), dv = devralGoster(no);
     var bekleyenDevral = dv && devralOnay !== no;
     var kp = kapanisGoster(no), kpEngel = kp && !kp.bu;
+    // Etiketleme: tek dokunuş — yalnız «Tamamlandı» (kim / ne zaman kaydı)
+    var etk = adimTuru(secilenAdim(no)) === "etiket";
+    ["BASLADI", "SETUP", "DURAKLADI", "SUREN"].forEach(function (d) {
+      var bb = $("#durum-secim").querySelector('[data-deger="' + d + '"]');
+      if (bb && etk) bb.hidden = true;
+      else if (bb && !(kp && kp.bu && (d === "BASLADI" || d === "SETUP"))) bb.hidden = false;
+    });
+    if (etk && durum.durum !== "TAMAM") { durumUygula("TAMAM"); adetGorunurlugu(); }
     if (kp && kp.bu && acilisMi(durum.durum)) { durumUygula("DURAKLADI"); adetGorunurlugu(); }
-    $("#btn-ana").disabled = !!e || !g || !!bekleyenDevral || !!kpEngel;
+    // Adım başkasındaysa alttaki büyük tuş «Devral» olur (üstteki küçük kutu gözden kaçmasın)
+    var devralTusu = !!bekleyenDevral && !e && !!g && !kpEngel;
+    if (devralTusu) $("#btn-ana").dataset.mod = "devral";
+    else if ($("#btn-ana").dataset.mod === "devral") delete $("#btn-ana").dataset.mod;
+    $("#btn-ana").disabled = !devralTusu && (!!e || !g || !!bekleyenDevral || !!kpEngel);
     mkyGoster();
     yoneticiGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
                                       ? (altyapiEngeli(secilenAdim(no)).kaliteci ? "Yalnız Ara Ölçüm" : "Başka altyapının adımı")
                                       : mz ? "Önce malzeme onayı" : e.anaBekle ? "Ana adım başlamadı" : "Önceki adım kapanmadı")
                               : !g ? "Önce giriş yapın"
-                              : bekleyenDevral ? "Önce devralın" : kpEngel ? "Önce kapanışı girin" : "Kaydet ve Gönder";
+                              : bekleyenDevral ? (devralTusu ? "Devral (şu an " + dv.kimde + ")" : "Önce devralın") : kpEngel ? "Önce kapanışı girin" : "Kaydet ve Gönder";
   }
   function engelNedeni(no) {
     var e = tumEngel(no);
@@ -1821,6 +1895,7 @@
   /* Bir adımın son durumuna göre sırada mantıken hangi kaydın geleceği.
      Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
   function oneriDurum(son) {
+    if (secili && adimTuru(secili) === "etiket") return "TAMAM";    // etiketleme: tek dokunuş
     if (secili && kapanisEksik(secili[0])) return "DURAKLADI";   // önce dünkü kapanış
     if (son === "SUREN") return "BASLADI";       // sabah: tezgahın başına dönüldü
     if (!son) return "BASLADI";
@@ -1902,6 +1977,7 @@
       var pgr = paralelGrubu(no);
       altEl.className = "alt"; altEl.textContent = icdis + (tasinan[no] ? "  ↕ sıra değişti" : "") +
                                                    (pgr ? "  ∥ paralel: " + pgr.map(gNo).join(" ∥ ") : "") +
+                                                   (eklenenMi(no) ? "  ＋ planlama ekledi" : "") +
                                                    (gNo(no) !== no ? " · İP'de " + no : "");
       orta.appendChild(adEl); orta.appendChild(altEl);
       var cip = document.createElement("span");
@@ -1980,7 +2056,8 @@
   /* Her adım BOŞ formla başlar. En önemlisi kaşe/sicil no: bir öncekinin
      numarası taşınırsa operasyon YANLIŞ kişinin üzerine kaydedilir. */
   function formuBosalt() {
-    ["kase", "tezgah", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "suren-tarih", "suren-saat", "kurulum", "isleme",
+    $("#setup-her").checked = false; delete $("#setup-her").dataset.elle;
+    ["kase", "tezgah", "raf", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "suren-tarih", "suren-saat", "kurulum", "isleme",
      "iyi", "hurda", "yeniden", "fai-kase", "apa-no", "sap-metin",
      "sap-adet", "sap-kase", "not-metin"].forEach(function (id) {
       var e = $("#" + id);
@@ -2150,6 +2227,8 @@
     dnkGoster();
     var basladi = acilisMi(d), tamam = d === "TAMAM";
     var kp = secili ? kapanisEksik(secili[0]) : null;
+    var etiket = secili && adimTuru(secili) === "etiket";
+    [].forEach.call(document.querySelectorAll(".zaman-ikili, .mesai-not"), function (e) { e.hidden = etiket; });
     $("#bit-alan").hidden = basladi;
     $("#suren-alan").hidden = d !== "SUREN";
     // Açılış kaydında başlangıç = QR okutma saati (değiştirilemez)
@@ -2159,7 +2238,8 @@
     // Kapanış eksikse bitiş o günündür
     $("#bit-tarih").disabled = !!kp;
     $("#fm-alan").hidden = false; fmGoster();
-    $("#sure-alan").hidden = basladi;      // süreler işin sonunda yazılır
+    $("#sure-alan").hidden = basladi || etiket;      // süreler işin sonunda yazılır; etiketlemede süre yok
+    if (etiket) { $("#fm-alan").hidden = true; $("#sure-ozet").hidden = true; }
 
     var s = secili ? sonraki(secili[0]) : null;
     $("#devir-baslik").hidden = !tamam;
@@ -2563,8 +2643,21 @@
     if (m) tezgahListesi().forEach(function (t) { if (tezNorm(t) === tezNorm(m[1])) adda = t; });
     return adda;
   }
+  /* Malzeme adımlarının kuralı: Temin → tezgah yok; Kesim → tezgah zorunlu + raf; Etiketleme → tek dokunuş «Tamamlandı» */
+  function adimTuru(x) {
+    var a = altNorm(String(x && x[1] || "").replace(/\s*\([^()]*\)\s*$/, ""));
+    if (a === "MALZEME TEMİNİ" || a === "HAM MALZEME TEMİNİ") return "temin";
+    if (a === "HAM MALZEME KESİMİ") return "kesim";
+    if (/^HAM MALZEME (ETİKETLEME|İŞARETLEME)/.test(a)) return "etiket";
+    return "";
+  }
+  function setupHerTezgahi(t) { var n = tezNorm(t || ""); return n.indexOf("ROBOFIL440") >= 0 || n.indexOf("CUTP550") >= 0; }
   function tezgahGerekli(x) {          // sunucudaki tezgahGerekli_ ile aynı kural
-    if (!x || altNorm(x[2]) === "DSB") return false;
+    if (!x) return false;
+    var tur = adimTuru(x);
+    if (tur === "temin" || tur === "etiket") return false;
+    if (tur === "kesim") return true;
+    if (altNorm(x[2]) === "DSB") return false;
     return !!ipTezgahi(x) || /TALAŞLI|KESİM|TESVİYE|KILAVUZ|YAY ATAŞMAN/.test(altNorm(x[1]));
   }
   function tezgahAlani() { return $("#tezgah").parentNode; }
@@ -2604,10 +2697,34 @@
     $("#tezgah-not").textContent = not;
   }
 
+  function adimKurali(x) {
+    var tur = adimTuru(x);
+    tezgahAlani().hidden = tur === "temin" || tur === "etiket";
+    if (tezgahAlani().hidden) $("#tezgah").value = "";
+    $("#raf-alan").hidden = tur !== "kesim";
+    if (tur === "kesim") {
+      var qr = String(is && is.raf || "").trim();
+      $("#raf").value = qr;
+      $("#raf-not").textContent = qr ? "Dijital Depo'dan seçilen malzemenin rafı (İP QR'ından)." : "İP'de raf yok: depocu girer.";
+    }
+    setupHerGoster();
+  }
+  function setupHerGoster() {
+    var t = $("#tezgah").value, g = secili && setupHerTezgahi(t);
+    $("#setup-her-alan").hidden = !g;
+    if (!g) $("#setup-her").checked = false;
+    else {
+      var u = sunucu.adimlar && sunucu.adimlar[secili[0]];
+      if (u && u.setup_her && !$("#setup-her").dataset.elle) $("#setup-her").checked = true;
+    }
+  }
+  $("#tezgah").addEventListener("change", setupHerGoster);
+  $("#setup-her").addEventListener("change", function () { this.dataset.elle = "1"; });
   function adimSec(x) {
     secili = x;
     formuBosalt();
     tezgahDoldur(x);
+    adimKurali(x);
     $("#secili-baslik").textContent = "Adım " + gNo(x[0]) + " — " + x[1] + (gNo(x[0]) !== x[0] ? " (İP'de " + x[0] + ")" : "");
     durumUygula(oneriDurum(adimDurumGoster(x[0])));
     $("#teyit").hidden = false;
@@ -2726,7 +2843,9 @@
     ek("KASE", $("#kase").value.trim());
     var dvs = secili && devralOnay === secili[0] ? devralGerekli(secili[0]) : null;
     if (dvs) ek("DEVRAL", dvs.kimde);
-    ek("TZG", $("#tezgah").value.trim());
+    ek("TZG", tezgahAlani().hidden ? "" : $("#tezgah").value.trim());
+    if (!$("#raf-alan").hidden) ek("RAF", $("#raf").value.trim());
+    if (!$("#setup-her-alan").hidden && $("#setup-her").checked) ek("SETUPHER", "E");
     if (durum.durum === "DURAKLADI") {
       ek("DNK", $("#dnk").value);
       if ($("#dnk").value === "X99") ek("DNKA", $("#dnka").value.trim());
@@ -2826,6 +2945,7 @@
         hata(mh); return;
       }
     }
+    if (adimTuru(secili) === "etiket" && durum.durum !== "TAMAM") { hata("Etiketleme adımında yalnız «Tamamlandı» girilir."); return; }
     if (tezgahGerekli(secili) && !$("#tezgah").value) {
       tezgahAlani().classList.add("hatali");
       tezgahAlani().scrollIntoView({ behavior: "smooth", block: "center" });
@@ -3045,6 +3165,7 @@
         sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
         if (r.sira !== undefined) { sunucu.sira = r.sira || null; siraUygula(); }
         if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
+        if (r.eklenen !== undefined) { sunucu.eklenen = r.eklenen || []; siraUygula(); }
         sunucu.kidliMi = true; sunucu.iyiliMi = true;
         setTimeout(yenidenCiz, 0);
       }
@@ -3181,6 +3302,11 @@
 
   $("#btn-ana").addEventListener("click", function () {
     if (this.dataset.mod === "kopya") { kopyala(); return; }
+    if (this.dataset.mod === "devral") {               // devral: adım bu kişiye geçer, durum «Başladı / Devam ediyor»
+      $("#devral-btn").click();
+      $("#devral-kutu").scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     if (!DURUM_SERVISI) { kaydiOlustur(); return; }
     // Göndermeden hemen önce ortak durumu tazele: sıra kuralı son bilgiyle denetlensin.
     var b = this;
@@ -3190,6 +3316,7 @@
     Promise.race([sunucuYukle(), bekle]).then(function () {
       if (!secili) return;
       kuraliGoster(secili[0]);           // düğmeyi taze duruma göre aç / kilitle
+      if (b.dataset.mod === "devral") return;   // bu arada adım başkasına geçmiş: önce devral
       if (!b.disabled) kaydiOlustur();
       else hata(engelNedeni(secili[0]));
     });
@@ -3353,7 +3480,15 @@ const KB = [
  {id:"setup",k:"Adım",s:["Setup nasıl girilir","setup süresi","tezgah hazırlığı"],a:["setup","hazirlik","ayar","baglama","kurulum suresi"],
   y:"Setup yaparken önce <span class=ui>Setup'ta</span>, setup bitince <span class=ui>Başladı</span> girersin.",
   d:["Hazırlığa başlarken durumu <span class=ui>Setup'ta</span> seç, gönder.","Setup bitip üretime geçince <span class=ui>Başladı</span> gönder."],
-  i:"Setup süresi «Setup'ta» kaydından bir sonraki kayda kadar geçen süredir; kendiliğinden hesaplanır.",b:["durumlar","kayit-sirasi"]},
+  i:"Setup süresi «Setup'ta» kaydından bir sonraki kayda kadar geçen süredir; kendiliğinden hesaplanır.",b:["setup-her-parca","durumlar","kayit-sirasi"]},
+ {id:"setup-her-parca",k:"Adım",s:["Robofil 440 setup her parçada","Cut P550 setup","her parça için ayrı bağlama"],a:["robofil","cut p550","cut p 550","tel erozyon","setup her parca","her parcada setup","her parca baglama","setup tekrar"],
+  y:"Robofil 440 ve Cut P550'de her parça için ayrı bağlama yapılıyorsa <span class=ui>Setup her parçada tekrarlanıyor</span> kutusunu işaretle.",
+  d:["Tezgah olarak Robofil 440 ya da Cut P550 seçince kutu çıkar.","İlk setup'ı her zamanki gibi <span class=ui>Setup'ta</span> → <span class=ui>Başladı</span> ile gir, kutuyu işaretle.","Sonraki parçalarda ayrıca «Setup'ta» girmen gerekmez."],
+  i:"Girdiğin setup süresi her iyi parça için ayrıca sayılır (işleme süresinden düşülür); toplam süre değişmez.",b:["setup","adet-girisi"]},
+ {id:"malzeme-adimlari",k:"Malzeme",s:["Malzeme Temini'nde tezgah var mı","kesimde raf nereden gelir","etiketleme nasıl girilir"],a:["malzeme temini","kesim","raf","etiketleme","isaretleme","depo konumu","tek dokunus"],
+  y:"Malzeme adımlarının kuralı: <b>Temin</b> tezgahsız, <b>Kesim</b> tezgah zorunlu + raf, <b>Etiketleme</b> tek dokunuş.",
+  d:["<b>Malzeme Temini</b>: tezgah sorulmaz.","<b>Ham Malzeme Kesimi</b>: tezgah zorunlu; <b>raf</b> malzeme Dijital Depo'dan seçildiyse İP QR'ından kendiliğinden gelir, yoksa depocu yazar.","<b>Etiketleme / İşaretleme</b>: yalnız <span class=ui>Tamamlandı</span>; saat, tezgah, raf sorulmaz — kim ve ne zaman yaptığı kaydedilir."],
+  b:["malzeme-kaynak","tezgah-zorunlu"]},
  {id:"kilitli-adim",k:"Adım",s:["Adım kilitli neden","kilit işareti var","adıma kayıt giremiyorum başka altyapı"],a:["kilit","kilitli","baska altyapi","giremiyorum","acilmiyor","yetki"],r:["operator"],
   y:"🔒 işaretli adım başka bir altyapıya aittir; kaydı o altyapının operatörü ya da yönetici girer.",
   d:["Örnek kilitli adımlar: Kalite Kontrol, Tahribatsız, iç Isıl İşlem.","Öncesi / Sonrası Kontrol, Sevk, Kaplama ve Ara Ölçüm herkese açıktır."],
@@ -3374,7 +3509,7 @@ const KB = [
  {id:"tezgah-zorunlu",k:"Tezgah",s:["Tezgah neden zorunlu","tezgahı nasıl seçerim","tezgah seçmeden gönderemiyorum"],a:["tezgah","makine","zorunlu","sec","secim","tezgah sec","ip onerisi"],
   y:"Plan değişebildiği için işi yaptığın tezgahı her kayıtta <b>sen seçersin</b>.",
   d:["<span class=ui>Tezgah (zorunlu)</span> listesinden işi yaptığın tezgahı seç.","İP'deki tezgah yalnız <b>öneridir</b> («İP önerisi: DMU 60») ve kendiliğinden seçilmez.","Adım başlamışsa son girilen tezgah hazır gelir; değiştiyse yeniden seç."],
-  n:"Tezgah seçmeden kayıt gönderilmez; alan kırmızı olur.",i:"Malzeme, kontrol, sevk gibi tezgahsız adımlarda tezgah sorulmaz.",b:["tezgah-listede-yok","tezgah-degisti"]},
+  n:"Tezgah seçmeden kayıt gönderilmez; alan kırmızı olur.",i:"Malzeme Temini ve Etiketleme'de tezgah sorulmaz; Ham Malzeme Kesimi'nde tezgah zorunludur.",b:["malzeme-adimlari","tezgah-listede-yok","tezgah-degisti"]},
  {id:"tezgah-listede-yok",k:"Tezgah",s:["Tezgahım listede yok","makinem listede görünmüyor"],a:["listede yok","bulamiyorum","yok","eksik","yeni tezgah","gorunmuyor"],
   y:"Tezgah listesini planlama yönetir; listede olmayan tezgahı planlamaya bildir.",
   b:["tezgah-zorunlu"]},
@@ -3383,8 +3518,8 @@ const KB = [
   i:"Pano tezgah kaydını analizlere dahil eder; İP'dekinden farklı tezgah seçmek hata değildir.",b:["tezgah-zorunlu"]},
  {id:"devral",k:"Devral",s:["Başkasının açık adımına nasıl devam ederim","devral nedir","adım başkasında açık"],a:["devral","baskasi","baskasinda","acik","devam","vardiya devri","arkadasimin"],
   y:"Aynı adımda aynı anda iki kişi çalışamaz; adım başkasında açıksa <b>Devral</b> kullanırsın.",
-  d:["Adımı seç; üstte turuncu kutu çıkar: «Bu adım şu an … sicilinde açık».","<span class=ui>Devral</span>'a dokun.","Durumu <span class=ui>Başladı</span> (ya da Setup'ta) seçip gönder."],
-  i:"Önceki kişinin süresi o anda kapanır, süre senden devam eder.",n:"Devralmadan kayıt gönderilemez.",b:["devral-adet","adet-girisi"]},
+  d:["Adımı seç; alttaki büyük tuş <span class=ui>Devral (şu an …)</span> olur (üstte turuncu kutu da çıkar).","Alttaki tuşa ya da kutudaki <span class=ui>Devral</span>'a dokun.","Durum <span class=ui>Başladı / Devam ediyor</span> olur; tezgahı seçip <span class=ui>Kaydet ve Gönder</span>."],
+  i:"Önceki kişinin süresi o anda kapanır, süre senden devam eder. Adım başkası tarafından <b>duraklatılmışsa</b> da aynı yolla devralıp devam edersin.",n:"Devralmadan kayıt gönderilemez.",b:["devral-adet","adet-girisi"]},
  {id:"devral-adet",k:"Devral",s:["Devralınca adet nasıl girilir","önceki kişinin ürettiği"],a:["devral","adet","onceki kisi","toplam","uretti"],
   y:"Önceki kişinin ürettiği adetler toplamda kalır; sen yalnız <b>kendi ürettiğini</b> yazarsın.",
   d:["İş bitince adımı devralan kişi olarak <span class=ui>Tamamlandı</span> gir.","<span class=ui>İyi (bu kayıt)</span> kutusuna yalnız senin ürettiğini yaz."],b:["adet-girisi","devral"]},
@@ -3607,6 +3742,8 @@ function benzer(q,k){ // 0..1
    İfade Türkçe yazılır; eşleşmede büyük/küçük harf, Türkçe karakter ve ekler tolere edilir
    (ör. "iş devri" → "işin devrini", "devrettim" yakalanır). Uzun ifade kısa olandan önce denenir. */
 const SOZLUK = [
+ ["Raf","raf",["raf","depo konumu","konum","raf no","stok yeri"]],
+ ["Setup her parçada","setup her parca",["her parça setup","her parçada setup","tel erozyon","robofil","cut p550","bağlama her parça"]],
  ["Paralel adım","paralel",["paralel","aynı anda","eş zamanlı","birlikte yürüyen","paralel rota","iki adım birden","∥"]],
  ["Süren iş","suren is",["süren iş","tezgah çalışmaya devam","makine çalışmaya devam","gözetimsiz","ışıksız","gece çalışıyor","tezgah çalışıyor","seri iş devam"]],
  ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
