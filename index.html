@@ -938,6 +938,7 @@
 
   var ON_EK = "MUIF1";          // QR yükünün başındaki imza
   var is = null, secili = null, ornekMi = true;
+  var QR_HAM = "";              // okutulan İP QR'ının yükü (MUIF1…): ilk kayıtta panoya bir kez gider
   var durum = { durum: "TAMAM", fai: "BEKLIYOR", apa: "MEVCUT" };
 
   /* ============================================================ yükleme ==
@@ -950,6 +951,7 @@
     return d;
   }
 
+  function qrHam(metin) { var m = /MUIF1[A-Za-z0-9_-]+/.exec(String(metin || "")); return m ? m[0].slice(5) : ""; }
   function yukuCoz(metin) {
     if (!metin) return null;
     metin = metin.trim();
@@ -1365,6 +1367,21 @@
   /* ---- Rota sırası: yönetici kayıtsız adımların yerini değiştirir; herkes sunucudaki sırayı görür.
      Proses bloğu (Öncesi Kontrol → Sevk → İşlem → Sonrası Kontrol) ve ara ölçüm (4.1) birlikte taşınır. */
   var tasinan = {};
+  /* Panoda düzeltilmiş rota kartı (durum servisi «rota»): QR'daki rotanın yerine geçer; her telefonda
+     aynı. null → QR'daki rota (düzeltme geri alındıysa eski hâline döner). */
+  function rotaKartiUygula(rk) {
+    if (!is || !is.asil) return;
+    var imza = rk ? JSON.stringify([rk.a, rk.kn, rk.rev, rk.adet, rk.raf]) : "";
+    if (imza === (is.rkImza || "")) return;
+    is.rkImza = imza;
+    var sno = secili && secili[0], o = rk || is.asil;
+    is.aQR = (rk ? rk.a : is.asil.a).map(function (x) { return [String(x[0]), String(x[1] || ""), String(x[2] || "")]; });
+    is.kn = o.kn || is.asil.kn; is.rev = o.rev || is.asil.rev;
+    is.adet = o.adet != null ? o.adet : is.asil.adet; is.raf = o.raf || is.asil.raf;
+    is.rkVar = !!rk;
+    siraUygula(); kunyeyiCiz();
+    if (sno) secili = is.a.filter(function (x) { return x[0] === sno; })[0] || secili;
+  }
   function siraUygula() {
     if (!is || !is.aQR) return;
     var q = is.aQR, l = q;
@@ -1701,6 +1718,7 @@
       ek("ADET", is.adet); ek("TOP", is.a.length);
       if (rotali && n === 0) ek("ROTA", (is.aQR || is.a).map(function (y) {
         return y[0] + "~" + String(y[1] || "").replace(/[~;|]/g, " "); }).join(";"));
+      if (rotali && n === 0 && QR_HAM && !is.rkVar) ek("QRY", QR_HAM);
       ek("ADIM", x[0]); ek("AD", x[1]); ek("ALT", x[2]);
       ek("D", "ATLANDI"); ek("KASE", g.sicil); ek("MHAZIR", "E"); ek("SONRAKI", secili[0]);
       if (n === 0) mkyEkle(ek);
@@ -1760,6 +1778,7 @@
       sunucu.sira = (v && v.sira) || null;
       sunucu.paralel = (v && v.paralel) || [];
       sunucu.eklenen = (v && v.eklenen) || [];
+      if (v && v.rota !== undefined) rotaKartiUygula(v.rota);
       siraUygula();
       sunucu.kidliMi = Object.keys(sunucu.adimlar).some(function (k) {
         return !!sunucu.adimlar[k].kidler; });
@@ -1952,7 +1971,8 @@
     $("#k-kalem").textContent = is.kn || "—";
     $("#k-rev").textContent = is.rev || "—";
     $("#k-adet").textContent = is.adet != null ? is.adet : "—";
-    $("#k-kaynak").textContent = ornekMi ? "ÖRNEK" : "QR";
+    $("#k-kaynak").textContent = ornekMi ? "ÖRNEK" : is.rkVar ? "QR ✎" : "QR";
+    $("#k-kaynak").title = is.rkVar ? "Rota kartı planlamaca panoda düzeltildi; bu rota geçerlidir." : "";
     $("#k-kaynak").className = "cip " + (ornekMi ? "basla" : "tamam");
     $("#ornek-uyari").hidden = !ornekMi;
     $("#adet-ozet").textContent = "Planlanan adet: " + (is.adet != null ? is.adet : "—");
@@ -2865,6 +2885,7 @@
       ek("ROTA", (is.aQR || is.a).map(function (x) {
         return x[0] + "~" + String(x[1] || "").replace(/[~;|]/g, " ");
       }).join(";"));
+      if (QR_HAM && !is.rkVar) ek("QRY", QR_HAM);
       satirRotali = true;
     }
     ek("ADIM", secili[0]); ek("AD", secili[1]); ek("ALT", secili[2]);
@@ -3200,6 +3221,7 @@
       gonderildiIsaretle(paket.kid || kidOku(paket.metin));
       if (r.adimlar && is && is.ie === paket.ie) {
         sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
+        if (r.rota !== undefined) rotaKartiUygula(r.rota);
         if (r.sira !== undefined) { sunucu.sira = r.sira || null; siraUygula(); }
         if (r.paralel !== undefined) sunucu.paralel = r.paralel || [];
         if (r.eklenen !== undefined) { sunucu.eklenen = r.eklenen || []; siraUygula(); }
@@ -3371,6 +3393,7 @@
     devralOnay = null;
     is = veri; ornekMi = !qrdanMi;
     is.aQR = veri.a.slice();             // İP'deki (QR) sıra; yönetici değiştirirse is.a yeniden dizilir
+    is.asil = { kn: veri.kn, rev: veri.rev, adet: veri.adet, raf: veri.raf, a: veri.a.slice() };   // QR'daki hâli
     sunucu.sira = null; tasinan = {};
     secili = null;
     $("#teyit").hidden = true; $("#cikti").hidden = true;
@@ -3385,6 +3408,7 @@
 
   $("#kaynak-yukle").addEventListener("click", function () {
     var v = yukuCoz($("#kaynak-metin").value);
+    if (v) QR_HAM = qrHam($("#kaynak-metin").value);
     if (!v) { $("#kaynak-metin").value = ""; $("#kaynak-metin").placeholder = "Okunamadı — QR metninin tamamını yapıştırın"; return; }
     isiYukle(v, true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3430,6 +3454,7 @@
   kuyruguBosalt();
   var qrdan = yukuCoz(decodeURIComponent(location.hash || "")) ||
               yukuCoz(decodeURIComponent(location.search || ""));
+  if (qrdan) QR_HAM = qrHam(decodeURIComponent(location.hash || "") + " " + decodeURIComponent(location.search || ""));
   isiYukle(qrdan || ORNEK, !!qrdan);
 })();
 </script>
