@@ -1252,17 +1252,31 @@
   /* Zorunlu akşam kapanışı (26.10.2026'dan itibaren): kendi adımın önceki günden «Başladı / Setup'ta»
      kaldıysa o günün kapanışı (Duraklatıldı · O03 / Süren iş / Tamamlandı) girilmeden yeni kayıt girilmez. */
   var KAPANIS_BAS = new Date(2026, 9, 26).getTime();
-  var KAPANIS_DURUM = ["DURAKLADI", "SUREN", "TAMAM"];
+  var KAPANIS_DURUM = ["DURAKLADI", "TAMAM"];                  // süren iş yalnız aynı gün girilir
+  /* Önceki günden kalan «Süren iş» (04.11.2026'dan itibaren): sabah o adıma kayıt girilip süren işin
+     süresi kapatılmadan başka kayıt girilmez. */
+  var SUREN_BAS = new Date(2026, 10, 4).getTime();
+  var SUREN_KAPATAN = ["BASLADI", "SETUP", "DURAKLADI", "TAMAM"];
   function kapanisEksik(no) {
     var g = girisOku(), u = sunucu.adimlar && sunucu.adimlar[no];
-    if (!g || !u || !u.zaman || g.rol === "Kaliteci" || u.son_kase !== g.sicil || !acilisMi(u.durum)) return null;
+    if (!g || !u || !u.zaman || g.rol === "Kaliteci" || u.son_kase !== g.sicil) return null;
+    var suren = u.durum === "SUREN";
+    if (!suren && !acilisMi(u.durum)) return null;
     var son = adimDurumlari()[no];
-    if (son && !acilisMi(son.durum)) return null;          // kapanış bu telefondan girildi (yolda)
+    if (son && (suren ? son.durum !== "SUREN" : !acilisMi(son.durum))) return null;   // kapanış bu telefondan girildi (yolda)
     var x = secilenAdim(no);
     if (x && /ARA ÖLÇÜM/.test(altNorm(x[1]))) return null;
-    if (u.zaman < KAPANIS_BAS || new Date(u.zaman).toDateString() === new Date().toDateString()) return null;
+    if (u.zaman < (suren ? SUREN_BAS : KAPANIS_BAS) || new Date(u.zaman).toDateString() === new Date().toDateString()) return null;
     var gun = new Date(u.zaman); gun.setHours(0, 0, 0, 0);
-    return { no: no, gunMs: gun.getTime(), gun: gun.toLocaleDateString("tr-TR"), zaman: u.zaman };
+    return { no: no, gunMs: gun.getTime(), gun: gun.toLocaleDateString("tr-TR"), zaman: u.zaman,
+             tur: suren ? "suren" : "acik", surenBit: u.suren_bit || "" };
+  }
+  /* Akşam kapanışı eksik (Başladı / Setup'ta kalmış): bitiş o günündür */
+  function aksamKapanis(no) { var k = kapanisEksik(no); return k && k.tur === "acik" ? k : null; }
+  /* Süren iş yalnız aynı gün: adım bugün «Başladı / Setup'ta» açılmış olmalı */
+  function surenSecilebilir(no) {
+    var son = no ? adimDurumlari()[no] : null;
+    return !!(son && acilisMi(son.durum) && son.zaman && new Date(son.zaman).toDateString() === new Date().toDateString());
   }
   function kapanisListesi() {
     return (is && is.a ? is.a : []).map(function (x) { return kapanisEksik(x[0]); }).filter(Boolean);
@@ -1272,15 +1286,20 @@
     k.hidden = !l.length;
     ["BASLADI", "SETUP"].forEach(function (d) {
       var b = $("#durum-secim").querySelector('[data-deger="' + d + '"]');
-      if (b) b.hidden = !!bu;
+      if (b) b.hidden = !!(bu && bu.tur === "acik");
     });
     if (!l.length) return null;
-    $("#kapanis-yazi").textContent = bu
+    $("#kapanis-yazi").textContent = bu && bu.tur === "suren"
+      ? "Süren iş kapatılmadı: bu adım " + bu.gun + " günü «Süren iş» olarak kaldı" +
+        (bu.surenBit ? " (tezgah bitişi " + bu.surenBit + ")" : "") + ". Önce bu adıma kayıt girin — tezgahın başındaysanız " +
+        "«Başladı / Devam ediyor», iş bittiyse «Tamamlandı», bekliyorsa «Duraklatıldı». Süren iş kapanmadan başka işe kayıt girilmez."
+      : bu
       ? "Kapanış girilmemiş: bu adım " + bu.gun + " günü «Başladı» olarak kaldı. Önce o günün kapanışını girin — " +
-        "«Duraklatıldı · O03 Mesai bitimi», «Süren iş» ya da «Tamamlandı»; Bitiş saati " + bu.gun + " günündendir. " +
-        "Sonra bugün için «Başladı / Devam ediyor» girersiniz."
-      : "Önce kapanış: " + l.map(function (x) { return "adım " + gNo(x.no) + " (" + x.gun + ")"; }).join(", ") +
-        " akşam kapanışı girilmemiş. O adımı seçip kapanışı girmeden bu iş emrinde yeni kayıt girilemez.";
+        "«Duraklatıldı · O03 Mesai bitimi» ya da «Tamamlandı»; Bitiş saati " + bu.gun + " günündendir. " +
+        "«Süren iş» yalnız aynı gün, çıkarken girilir. Sonra bugün için «Başladı / Devam ediyor» girersiniz."
+      : "Önce kapanış: " + l.map(function (x) { return "adım " + gNo(x.no) + " (" + x.gun + (x.tur === "suren" ? ", süren iş" : "") + ")"; }).join(", ") +
+        (l.every(function (x) { return x.tur === "suren"; }) ? " süren işi kapatılmamış." : " kapanışı girilmemiş.") +
+        " O adımı seçip kaydını girmeden bu iş emrinde yeni kayıt girilemez.";
     return { bu: bu, liste: l };
   }
   function devralGoster(no) {
@@ -1837,13 +1856,16 @@
     var kp = kapanisGoster(no), kpEngel = kp && !kp.bu;
     // Etiketleme: tek dokunuş — yalnız «Tamamlandı» (kim / ne zaman kaydı)
     var etk = adimTuru(secilenAdim(no)) === "etiket";
+    var kpAcik = kp && kp.bu && kp.bu.tur === "acik";
     ["BASLADI", "SETUP", "DURAKLADI", "SUREN"].forEach(function (d) {
       var bb = $("#durum-secim").querySelector('[data-deger="' + d + '"]');
       if (bb && etk) bb.hidden = true;
-      else if (bb && !(kp && kp.bu && (d === "BASLADI" || d === "SETUP"))) bb.hidden = false;
+      else if (bb && d === "SUREN") bb.hidden = !surenSecilebilir(no);     // süren iş yalnız aynı gün
+      else if (bb && !(kpAcik && (d === "BASLADI" || d === "SETUP"))) bb.hidden = false;
     });
     if (etk && durum.durum !== "TAMAM") { durumUygula("TAMAM"); adetGorunurlugu(); }
-    if (kp && kp.bu && acilisMi(durum.durum)) { durumUygula("DURAKLADI"); adetGorunurlugu(); }
+    if (kpAcik && acilisMi(durum.durum)) { durumUygula("DURAKLADI"); adetGorunurlugu(); }
+    if (durum.durum === "SUREN" && !surenSecilebilir(no)) { durumUygula(oneriDurum(adimDurumlari()[no] ? adimDurumlari()[no].durum : "")); adetGorunurlugu(); }
     // Adım başkasındaysa alttaki büyük tuş «Devral» olur (üstteki küçük kutu gözden kaçmasın)
     var devralTusu = !!bekleyenDevral && !e && !!g && !kpEngel;
     if (devralTusu) $("#btn-ana").dataset.mod = "devral";
@@ -1896,7 +1918,7 @@
      Zorlayıcı değil — operatör her zaman başka bir durumu seçebilir. */
   function oneriDurum(son) {
     if (secili && adimTuru(secili) === "etiket") return "TAMAM";    // etiketleme: tek dokunuş
-    if (secili && kapanisEksik(secili[0])) return "DURAKLADI";   // önce dünkü kapanış
+    if (secili && aksamKapanis(secili[0])) return "DURAKLADI";   // önce dünkü kapanış
     if (son === "SUREN") return "BASLADI";       // sabah: tezgahın başına dönüldü
     if (!son) return "BASLADI";
     if (son === "BASLADI") {
@@ -1917,6 +1939,15 @@
 
   /* ============================================================== çizim ==*/
   function kunyeyiCiz() {
+    // Eğitim modu: «İE-EĞİTİM-…» kayıtları ayrı eğitim sayfasına gider; pano ve gerçek tabloya girmez
+    var egt = /^İE-EĞİTİM-|^IE-EGITIM-/i.test(String(is.ie || "")), sr = document.getElementById("egitim-serit");
+    if (egt && !sr) {
+      sr = document.createElement("div"); sr.id = "egitim-serit";
+      sr.style.cssText = "background:#FDEFD9;color:#7A4B00;border:1px solid #F2C27A;border-radius:12px;padding:10px 12px;margin:0 0 12px;font-size:13.5px;line-height:1.4";
+      sr.innerHTML = "<b>EĞİTİM MODU</b> · Bu iş emri denemedir: kayıtlar panoya ve gerçek tabloya gitmez.";
+      var kok = document.querySelector(".sayfa"); if (kok) kok.insertBefore(sr, kok.firstChild);
+    }
+    if (sr) sr.hidden = !egt;
     $("#k-ie").textContent = is.ie;
     $("#k-kalem").textContent = is.kn || "—";
     $("#k-rev").textContent = is.rev || "—";
@@ -2209,7 +2240,7 @@
   /* Durumu hem nesneye hem düğmelere işler. */
   function durumUygula(deger) {
     durum.durum = deger;
-    if (deger === "DURAKLADI" && secili && kapanisEksik(secili[0]) && !$("#dnk").value) $("#dnk").value = "O03";
+    if (deger === "DURAKLADI" && secili && aksamKapanis(secili[0]) && !$("#dnk").value) $("#dnk").value = "O03";
     Array.prototype.forEach.call($("#durum-secim").querySelectorAll("button"), function (b) {
       b.setAttribute("aria-pressed", b.dataset.deger === deger ? "true" : "false");
     });
@@ -2226,7 +2257,7 @@
     var d = durum.durum;
     dnkGoster();
     var basladi = acilisMi(d), tamam = d === "TAMAM";
-    var kp = secili ? kapanisEksik(secili[0]) : null;
+    var kp = secili ? aksamKapanis(secili[0]) : null;      // dünkü kapanış: bitiş o gün
     var etiket = secili && adimTuru(secili) === "etiket";
     [].forEach.call(document.querySelectorAll(".zaman-ikili, .mesai-not"), function (e) { e.hidden = etiket; });
     $("#bit-alan").hidden = basladi;
@@ -2366,7 +2397,7 @@
   }
   /* Bu kaydın eklediği fazla mesai: hafta sonu → bugün (tüm gün); hafta içi → işaretliyse bugün@çıkış */
   function buKayitFmg() {
-    var kp = secili ? kapanisEksik(secili[0]) : null;
+    var kp = secili ? aksamKapanis(secili[0]) : null;
     if (kp) {                                   // dünkü kapanış: fazla mesai o günün (bitiş 18:00'den sonraysa)
       var bz = kutudanZaman("#bit-tarih", "#bit-saat");
       if (haftaSonuMu(kp.gunMs)) return gunAnahtari(kp.gunMs);
@@ -2379,7 +2410,7 @@
   }
   function fmGoster() {
     var hs = haftaSonuMu(Date.now());
-    $("#fm-alan").hidden = !!(secili && kapanisEksik(secili[0]));   // kapanışta fazla mesai bitiş saatinden
+    $("#fm-alan").hidden = !!(secili && aksamKapanis(secili[0]));   // kapanışta fazla mesai bitiş saatinden
     $("#fm-hici").hidden = hs; $("#fm-hsonu").hidden = !hs;
     $("#fm-bugun").textContent = bugunAnahtari().slice(0, 5);
     $("#fm-hs-gun").textContent = bugunAnahtari().slice(0, 5) + " " + GUN_ADI[new Date().getDay()];
@@ -2968,10 +2999,16 @@
     }
     var kpl = kapanisListesi(), kpu = kapanisEksik(secili[0]);
     if (kpl.length && !kpu) { hata($("#kapanis-yazi").textContent || "Önce önceki günün kapanışını girin."); return; }
-    if (kpu && KAPANIS_DURUM.indexOf(durum.durum) < 0) {
-      hata("Önce " + kpu.gun + " kapanışını girin: «Duraklatıldı · O03», «Süren iş» ya da «Tamamlandı»."); return;
+    if (kpu && kpu.tur === "suren" && SUREN_KAPATAN.indexOf(durum.durum) < 0) {
+      hata("Önce " + kpu.gun + " süren işini kapatın: «Başladı / Devam ediyor», «Duraklatıldı» ya da «Tamamlandı»."); return;
     }
-    if (kpu) {
+    if (kpu && kpu.tur === "acik" && KAPANIS_DURUM.indexOf(durum.durum) < 0) {
+      hata("Önce " + kpu.gun + " kapanışını girin: «Duraklatıldı · O03» ya da «Tamamlandı». Süren iş yalnız aynı gün girilir."); return;
+    }
+    if (durum.durum === "SUREN" && !surenSecilebilir(secili[0])) {
+      hata("«Süren iş» yalnız o gün, işten çıkarken girilir: adım bugün «Başladı / Devam ediyor» olarak açık olmalı."); return;
+    }
+    if (kpu && kpu.tur === "acik") {
       var kbz = kutudanZaman("#bit-tarih", "#bit-saat");
       if (kbz == null || gunYazi(kbz) !== gunYazi(kpu.gunMs) || kbz < kpu.zaman - 5 * 60000) {
         hata("Kapanışın bitiş saati " + kpu.gun + " günü, son kayıttan (" + tarihSaat(kpu.zaman) + ") sonra olmalı."); return;
@@ -3568,12 +3605,12 @@ const KB = [
   y:"Akşam iş yarım kalıyorsa <span class=ui>Duraklatıldı</span> seçip nedeni <b>O03 · Mesai / vardiya bitimi</b> yap.",
   i:"Ertesi gün işe dönünce QR'ı okutup «Başladı» gir; süre kaldığı yerden sayılır. Tezgah sen çıktıktan sonra da işliyorsa «Süren iş» seç.",b:["kapanis-zorunlu","suren-is","durus-neden"]},
  {id:"suren-is",k:"Adım",s:["Süren iş nedir","mesai bitti tezgah çalışmaya devam ediyor","seri işte makine gece çalışıyor"],a:["suren is","suren","tezgah calisiyor","makine calisiyor","devam ediyor","gozetimsiz","gece","seri is","mesai bitimi","isik"],
-  y:"Seri işte sen çıkarken tezgah işlemeye devam ediyorsa akşam kapanışında <span class=ui>Süren iş</span> seç.",
-  d:["<span class=ui>Süren iş</span>'e dokun; <b>Bitiş</b> = senin çıkış saatin.","<b>Tezgahın bitiş saati</b>ni seç (zorunlu): tezgahın işi bitireceği / durduğu saat.","Tezgahı seç, o ana kadar biten iyi adedi gir, <span class=ui>Kaydet ve Gönder</span>.","Sabah QR'ı okutup «Başladı / Devam ediyor» gir."],
+  y:"Seri işte sen çıkarken tezgah işlemeye devam ediyorsa <b>o gün, çıkarken</b> <span class=ui>Süren iş</span> seç. Ertesi gün geriye dönük süren iş girilmez.",
+  d:["<span class=ui>Süren iş</span>'e dokun; <b>Bitiş</b> = senin çıkış saatin.","<b>Tezgahın bitiş saati</b>ni seç (zorunlu): tezgahın işi bitireceği / durduğu saat.","Tezgahı seç, o ana kadar biten iyi adedi gir, <span class=ui>Kaydet ve Gönder</span>.","<b>Sabah önce süren işi kapat</b>: QR'ı okut, o adıma «Başladı / Devam ediyor» (iş bittiyse «Tamamlandı») gir. Bu girilmeden başka işe kayıt açılmaz."],
   n:"Tezgahın bu süresi parça, iş emri ve tezgah süresine girer (panoda mor çizgili); senin çalışma sürene ve fazla mesaiye girmez.",b:["kapanis-zorunlu","durus-aksam","parca-basina-sure"]},
  {id:"kapanis-zorunlu",k:"Adım",s:["Akşam kapanış zorunlu mu","Kapanış girilmemiş uyarısı","dün kapatmayı unuttum"],a:["kapanis","kapanis girilmemis","kapanis eksik","kapatmayi unuttum","aksam kaydi","cikis kaydi","zorunlu","dun","once kapanis"],
   y:"Her akşam açık adımına kapanış girmek zorunlu: <span class=ui>Duraklatıldı · O03</span>, <span class=ui>Süren iş</span> ya da <span class=ui>Tamamlandı</span>.",
-  d:["Unuttuysan ertesi sabah telefon önce o kapanışı ister; diğer kayıtlar kilitli kalır.","Adımı seç: «Başladı» gizlenir, «Duraklatıldı · O03» hazır gelir; Bitiş tarihi o gündür, saatini seç (varsayılan 17:30).","Kapanışı gönderdikten sonra bugün için «Başladı / Devam ediyor» gir."],
+  d:["Unuttuysan ertesi sabah telefon önce o kapanışı ister; diğer kayıtlar kilitli kalır.","Adımı seç: «Başladı» gizlenir, «Duraklatıldı · O03» hazır gelir; Bitiş tarihi o gündür, saatini seç (varsayılan 17:30). Ertesi gün <b>Süren iş seçilemez</b>.","Kapanışı gönderdikten sonra bugün için «Başladı / Devam ediyor» gir.","Dün <b>Süren iş</b> girdiysen sabah ilk iş o adıma «Başladı / Devam ediyor» ya da «Tamamlandı» gir; süren iş kapanmadan başka işe kayıt girilmez."],
   n:"Başka iş emrinde açık kalan adımın varsa sunucu «Önce önceki günün kapanışını girin» der; o iş emrinin QR'ını okutup kapat. Panoda ve gün sonu mailinde «Kapanış girilmemiş» olarak görünür.",b:["durus-aksam","suren-is","devam-ediyor"]},
  {id:"qr-baslangic",k:"Saat",s:["Başlangıç saati neden değişmiyor","giriş saatim nereden geliyor","geç geldim saat"],a:["giris saati","baslangic saati","degismiyor","degistiremiyorum","qr saati","gelis","gec geldim","erken geldim"],
   y:"«Başladı / Devam ediyor» ve «Setup'ta» kaydının başlangıcı QR'ı okuttuğun andır; elle değiştirilemez.",
