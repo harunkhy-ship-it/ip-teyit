@@ -231,6 +231,15 @@
   .kapanis-genel .kg-satir:first-of-type{border-top:none}
   .kapanis-genel .kg-satir span{flex:1; font-weight:500}
   .kapanis-genel .kg-satir button{align-self:center; white-space:nowrap}
+  .islerim{margin:0 0 12px; padding:10px 12px; border-radius:var(--r); background:var(--yuzey2);
+    border:1px solid var(--cizgi); display:flex; flex-direction:column; gap:2px; font-size:13.5px}
+  .islerim .is-baslik{margin:0 0 4px; font-weight:700; font-size:13px; color:var(--ink2); letter-spacing:.02em}
+  .islerim .is-satir{display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--cizgi)}
+  .islerim .is-satir:first-of-type{border-top:none}
+  .islerim .is-satir span{flex:1; line-height:1.35}
+  .islerim .is-satir small{display:block; color:var(--ink2); font-size:12px}
+  .islerim .is-satir button{white-space:nowrap; font:inherit; font-size:13px; font-weight:600; padding:6px 12px;
+    border-radius:8px; border:1px solid var(--vurgu); background:var(--yuzey); color:var(--vurgu); cursor:pointer}
   .qr-btn{flex:0 0 auto; height:38px; padding:0 12px; border-radius:9px; font:inherit; font-size:14px; font-weight:600;
     background:var(--vurgu); color:#fff; border:none; cursor:pointer; margin-left:auto}
   .qr-btn + .ayar-btn{margin-left:8px}
@@ -468,11 +477,13 @@
   <main>
     <button type="button" class="qr-buyuk" id="qr-tara-buyuk" hidden>📷 İP QR'ını okut</button>
     <div class="kural-uyari kapanis-genel" id="kapanis-genel" hidden></div>
+    <div class="islerim" id="islerim" hidden></div>
     <div class="giris-kart" id="giris-kart" hidden>
       <p class="giris-baslik">Giriş — Sicil ve Authenticator kodu</p>
       <p class="not" style="margin-top:0">Rotayı görmek ve kayıt girmek için telefonunuzdaki
         <b>Authenticator</b> uygulamasında «İP Saha» altındaki 6 haneli kodu yazın.
-        Giriş vardiya sonuna (17:30; fazla mesaide 21:00) kadar <b>tüm iş emirlerinde</b> geçerlidir.</p>
+        Giriş gün içinde <b>tüm iş emirlerinde</b> geçerlidir; 17:30'da kapanır. O saatte açık işiniz
+        varsa (mesai / süren iş) kod sorulmadan uzar.</p>
       <div class="ikili">
         <label class="alan" style="margin:0"><span class="etiket">Sicil No</span>
           <input type="text" id="g-sicil" inputmode="numeric" autocomplete="off" placeholder="1147"></label>
@@ -1161,7 +1172,8 @@
       var g = JSON.parse(localStorage.getItem("muif-giris:" + (ie || (is && is.ie))) || "null");
       if (g && g.jeton && g.bitis > Date.now()) return g;
       g = JSON.parse(localStorage.getItem("muif-giris:*") || "null");
-      return g && g.jeton && g.bitis > Date.now() ? g : null;
+      // 17:30 sonrası: gün sonuna kadar saklanır; açık işi (mesai / süren iş) yoksa sunucu reddeder → giriş kartı
+      return g && g.jeton && (g.bitis > Date.now() || (g.mesai_son || 0) > Date.now()) ? g : null;
     } catch (e) { return null; }
   }
   function girisYaz(g) {
@@ -1173,6 +1185,16 @@
   function girisSil(ie) {
     try { localStorage.removeItem("muif-giris:" + (ie || (is && is.ie))); localStorage.removeItem("muif-giris:*"); } catch (e) {}
     kapanisGenel = []; kapanisGenelCiz();
+    islerimSunucu = []; islerimCiz();
+  }
+  /* Sunucu yanıtı: mesai uzaması (yeni jeton) ve kişinin işleri */
+  function girisCevabi(r) {
+    if (!r || !r.ok) return;
+    if (r.uzat && r.uzat.jeton) {
+      var g = girisOku();
+      if (g) { g.jeton = r.uzat.jeton; g.bitis = r.uzat.bitis; g.mesai_son = r.uzat.mesai_son; girisYaz(g); girisGoster(); }
+    }
+    if (r.islerim) { islerimSunucu = r.islerim; setTimeout(islerimCiz, 0); }
   }
   function saatYaz(ms) { return new Date(ms).toTimeString().slice(0, 5); }
   function yoneticiMi(g) { return !!g && (g.rol === "Master" || g.rol === "Admin"); }
@@ -1213,7 +1235,7 @@
     if (g) {
       $("#giris-yazi").textContent = "Giriş: " + g.sicil + (g.ad ? " · " + g.ad : "") +
                                      (yoneticiMi(g) ? " · " + (g.rol === "Master" ? "Master" : "Yönetici") : kaliteciMi(g) ? " · Kaliteci" : "") +
-                                     " · " + saatYaz(g.bitis) + "'a kadar";
+                                     (g.bitis > Date.now() ? " · " + saatYaz(g.bitis) + "'a kadar" : " · mesai (açık işiniz sürdükçe)");
       $("#kase").value = g.sicil;
     } else {
       $("#kase").value = "";
@@ -1234,9 +1256,10 @@
     servisPost({ islem: "giris", sicil: sicil, kod: kod, ie: is.ie }).then(function (r) {
       b.disabled = false; b.textContent = "Giriş yap";
       if (!r || !r.ok) { h.textContent = (r && r.mesaj) || "Giriş yapılamadı."; h.hidden = false; return; }
-      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis, genel: !!r.genel,
+      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis, genel: !!r.genel, mesai_son: r.mesai_son || 0,
                  rol: r.rol || "Operatör", altyapi: r.altyapi || [], tezgahlar: r.tezgahlar || [] });
       if (r.kapanis) { kapanisGenel = r.kapanis; kapanisGenelCiz(); }
+      girisCevabi(r);
       $("#g-kod").value = "";
       girisGoster();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1450,6 +1473,51 @@
     isiYukle(v, true);
     window.scrollTo({ top: 0, behavior: "smooth" });
     return true;
+  }
+
+  /* İşlerim: bu telefonda bugün okutulan işler + sunucudaki işleri (bugün kayıt girdiği ya da adımı
+     onda açık olan). Dokununca o iş bu sayfada açılır; giriş korunur, yeniden kod sorulmaz. */
+  var islerimSunucu = [];
+  function bugunBasi() { var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function islerimYerel() {
+    try {
+      var l = JSON.parse(localStorage.getItem("muif-islerim") || "[]");
+      return Array.isArray(l) ? l.filter(function (x) { return x && x.ie && x.yuk && x.z >= bugunBasi(); }) : [];
+    } catch (e) { return []; }
+  }
+  function islerimEkle(v, yuk) {
+    if (!v || !v.ie || !yuk) return;
+    var l = islerimYerel().filter(function (x) { return x.ie !== v.ie; });
+    l.unshift({ ie: v.ie, kn: v.kn || "", yuk: yuk, z: Date.now() });
+    try { localStorage.setItem("muif-islerim", JSON.stringify(l.slice(0, 15))); } catch (e) {}
+  }
+  function islerimCiz() {
+    var k = document.getElementById("islerim");
+    if (!k) return;
+    var kap = {};
+    (kapanisGenel || []).forEach(function (x) { kap[x.ie] = 1; });
+    var gor = {}, l = [];
+    (islerimSunucu || []).forEach(function (x) { if (x.yuk) { gor[x.ie] = 1; l.push({ ie: x.ie, kn: x.kn, yuk: x.yuk, acik: x.acik || [] }); } });
+    islerimYerel().forEach(function (x) { if (!gor[x.ie]) { gor[x.ie] = 1; l.push({ ie: x.ie, kn: x.kn, yuk: x.yuk, acik: [], yerel: true }); } });
+    l = l.filter(function (x) { return (!is || ornekMi || x.ie !== is.ie) && !kap[x.ie]; });
+    k.hidden = !l.length || !girisOku();
+    k.textContent = "";
+    if (k.hidden) return;
+    var p = document.createElement("p"); p.className = "is-baslik";
+    p.textContent = "İşlerim — dokunun, kod sorulmadan açılır";
+    k.appendChild(p);
+    l.forEach(function (x) {
+      var d = document.createElement("div"); d.className = "is-satir";
+      var t = document.createElement("span");
+      t.textContent = x.ie + (x.kn ? " · " + x.kn : "");
+      var a = document.createElement("small");
+      a.textContent = x.acik.length ? "Sizde açık: adım " + x.acik.join(", ") : x.yerel ? "Bugün okuttunuz" : "Bugün kayıt girdiniz";
+      t.appendChild(a); d.appendChild(t);
+      var b = document.createElement("button"); b.type = "button"; b.textContent = "Aç →";
+      b.addEventListener("click", function () { yuktenAc(x.yuk); });
+      d.appendChild(b);
+      k.appendChild(d);
+    });
   }
 
   /* Sayfa içi QR okuyucu: ana ekrana eklenen uygulamada QR buradan okutulur (giriş korunur). */
@@ -1906,6 +1974,7 @@
     var istek = g
       ? servisPost({ islem: "durum", jeton: g.jeton, ie: ie }).then(function (v) {
           if (v && v.hata === "giris_gerekli") { girisSil(ie); girisGoster(); }
+          girisCevabi(v);
           if (v && v.ok && v.rol) {
             var g2 = girisOku(ie);
             if (g2) { g2.rol = v.rol; g2.altyapi = v.altyapi || []; girisYaz(g2); }
@@ -2122,6 +2191,7 @@
     $("#ornek-uyari").hidden = !ornekMi;
     $("#qr-tara-buyuk").hidden = !ornekMi;
     if (typeof kapanisGenelCiz === "function") kapanisGenelCiz();
+    if (typeof islerimCiz === "function") islerimCiz();
     $("#adet-ozet").textContent = "Planlanan adet: " + (is.adet != null ? is.adet : "—");
   }
 
@@ -3365,6 +3435,7 @@
         if (is && is.ie === paket.ie) { girisGoster(); if (secili) kuraliGoster(secili[0]); }
       }
       if (!r || !r.ok) throw { kural: true, cevap: r || {} };
+      girisCevabi(r);
       gonderildiIsaretle(paket.kid || kidOku(paket.metin));
       if (r.adimlar && is && is.ie === paket.ie) {
         sunucu.adimlar = r.adimlar; sunucu.zaman = Date.now(); sunucu.hal = "tamam";
@@ -3540,6 +3611,7 @@
   function isiYukle(veri, qrdanMi) {
     devralOnay = null;
     is = veri; ornekMi = !qrdanMi;
+    if (qrdanMi) islerimEkle(veri, QR_HAM);
     is.aQR = veri.a.slice();             // İP'deki (QR) sıra; yönetici değiştirirse is.a yeniden dizilir
     is.asil = { kn: veri.kn, rev: veri.rev, adet: veri.adet, raf: veri.raf, a: veri.a.slice() };   // QR'daki hâli
     sunucu.sira = null; tasinan = {};
@@ -3659,13 +3731,21 @@ const KB = [
   d:["Authenticator'da yeni kodun çıkmasını bekle, yeni kodu yaz.","Doğru satırı kullandığından emin ol: <b>İP Saha (kendi sicilin)</b>.","Telefonun saatinin <b>otomatik</b> ayarda olduğunu kontrol et."],
   n:"5 kez yanlış kod girilirse giriş 5 dakika kilitlenir; 5 dakika sonra tekrar dene.",i:"Hâlâ olmuyorsa planlamaya söyle; kurulumun yenilenmesi gerekebilir.",b:["kurulum","telefon-degisti"]},
  {id:"giris-suresi",k:"Giriş",s:["Neden tekrar kod soruyor","giriş ne kadar geçerli","kod her seferinde soruluyor mu"],a:["tekrar","yeniden","her seferinde","sure","gecerli","ne zamana kadar","oturum suresi"],
-  y:"Kod vardiyada <b>bir kez</b> sorulur; giriş vardiya sonuna kadar <b>tüm iş emirlerinde</b> geçerlidir.",
-  d:["Normal mesaide giriş <b>17:30</b>'a kadar geçerlidir.","Fazla mesaide <b>21:00</b>'a kadar geçerlidir.","Süre dolunca yeni kayıt için yeniden kod istenir.","Her QR'da yine kod soruyorsa QR'ı önizleme / kod tarayıcı / başka uygulama içinde açıyorsun: orada giriş saklanmaz. Bir kez Safari'de açıp <span class=ui>Paylaş → Ana Ekrana Ekle</span> de; sonra ana ekrandaki «İP Saha»dan üstteki <span class=ui>📷 QR</span> ile okut."],
+  y:"Kod günde <b>bir kez</b> sorulur; giriş gün içinde <b>tüm iş emirlerinde</b> geçerlidir.",
+  d:["Giriş <b>17:30</b>'da kendiliğinden kapanır.","O saatte sende <b>açık iş</b> varsa (mesai ya da süren iş girmen gerekiyorsa) giriş kod sorulmadan uzar (21:00'e, sonra 2'şer saat).","Açık işin yoksa 17:30'dan sonra yeni kayıt için yeniden kod istenir.","Her QR'da yine kod soruyorsa QR'ı önizleme / kod tarayıcı / başka uygulama içinde açıyorsun: orada giriş saklanmaz. Bir kez Safari'de açıp <span class=ui>Paylaş → Ana Ekrana Ekle</span> de; sonra ana ekrandaki «İP Saha»dan üstteki <span class=ui>📷 QR</span> ile okut."],
   i:"Bağlantısızken girilip bekleyen kayıt, yeniden giriş yapınca gönderilir.",b:["qr-uygulama-ici","giris","baglanti-yok"]},
  {id:"qr-uygulama-ici",k:"QR",s:["Her QR'da şifre soruyor","QR'ı uygulamanın içinden okutma","ana ekrana ekle"],a:["her seferinde sifre","her qr","onizleme","kod tarayici","ana ekran","ana ekrana ekle","uygulama","qr butonu","kamera butonu","giris saklanmiyor"],
   y:"QR'ları sayfanın kendi <span class=ui>📷 QR</span> düğmesiyle okutursan giriş vardiya boyunca korunur.",
   d:["Sayfayı bir kez Safari'de aç, <span class=ui>Paylaş → Ana Ekrana Ekle</span> de.","İşe başlarken ana ekrandaki «İP Saha»yı aç, sicil + kodla bir kez gir.","Her yeni iş için üstteki <span class=ui>📷 QR</span>'a dokun, İş Planı'ndaki QR'ı çerçeveye al: iş açılır, kod sorulmaz."],
-  n:"İlk kullanımda kamera izni sorulur; «İzin Ver» de.",b:["giris-suresi","qr-nerede"]},
+  n:"İlk kullanımda kamera izni sorulur; «İzin Ver» de.",b:["giris-suresi","qr-nerede","islerim"]},
+ {id:"islerim",k:"QR",s:["Okuttuğum işler nerede","İşlerim listesi","önceki işe geri dönmek"],a:["islerim","okuttugum","onceki is","geri donmek","liste","is listesi","diger is","baska is"],
+  y:"Sayfanın üstündeki <b>İşlerim</b> kutusunda bugün okuttuğun ve sende açık olan işler durur; <span class=ui>Aç →</span> ile kod sorulmadan açılır.",
+  d:["Bugün bu telefonda okuttuğun işler «Bugün okuttunuz» diye görünür.","Sende açık adımı olan işler «Sizde açık: adım …» diye görünür (başka telefondan açtıysan da).","Açtığın işte yetkin neyse onu girersin; kurallar aynıdır."],
+  n:"Kapanışı eksik iş varsa önce en üstteki kırmızı kutudan onu kapat.",b:["qr-uygulama-ici","kapanis-zorunlu"]},
+ {id:"iki-tezgah",k:"Adım",s:["Aynı anda iki tezgahta çalışabilir miyim","iki iş birden açmak"],a:["iki tezgah","iki makine","iki is","ayni anda iki","birden fazla tezgah","cift tezgah"],
+  y:"Evet: farklı iş emirlerinde aynı anda iki (ya da daha çok) adımı açabilirsin.",
+  d:["Her işi kendi QR'ı / <b>İşlerim</b> listesiyle aç, «Başladı»yı gir, tezgahı seç.","Aynı iş emrindeki <b>paralel</b> adımlardan ikisini aynı anda açamazsın.","Akşam her açık işin kapanışını (ya da süren işini) ayrı ayrı gir."],
+  b:["islerim","kapanis-zorunlu"]},
  {id:"telefon-degisti",k:"Giriş",s:["Telefonum değişti","telefonumu kaybettim","yeni telefon aldım"],a:["telefon","degisti","kayip","kaybettim","yeni telefon","calindi","bozuldu"],
   y:"Planlamaya haber ver; eski kodun iptal edilip sana yeni bir Kurulum QR'ı verilir.",
   d:["Planlama sorumlusuna telefonun değiştiğini ya da kaybolduğunu söyle.","Panodan eski kodun iptal edilir ve yeni Kurulum QR'ı açılır.","Yeni telefonda Authenticator'a bu QR'ı okut."],
