@@ -1059,10 +1059,10 @@
     Object.keys(sunucu.adimlar).forEach(function (no) {
       var u = sunucu.adimlar[no], y = s[no];
       if (!u.durum) return;
-      var ayni = y && (u.son_kid ? u.son_kid === y.kid
+      var ayni = y && y.durum === u.durum && (u.son_kid ? u.son_kid === y.kid
                      : (y.durum === u.durum && Math.abs((y.zaman || 0) - (u.zaman || 0)) < 10 * 60000));
       // Servisteki son kayıt bu telefonunkiyse telefonunkini göster (kaşe bilgisi var)
-      sonuc[no] = ayni ? y : { no: no, durum: u.durum, zaman: u.zaman, uzak: true,
+      sonuc[no] = ayni ? y : { no: no, durum: u.durum, zaman: u.zaman, uzak: true, oto: !!u.oto_gunsonu,
                                saat: new Date(u.zaman).toTimeString().slice(0, 5) };
     });
     // Bu telefonun son kaydı tabloya HENÜZ YANSIMADIYSA (yolda / bekleyen) o gösterilir.
@@ -2404,6 +2404,7 @@
       else if (d === "SETUP") y += " — setup bitince «Başladı» girin; setup süresi kendiliğinden hesaplanır.";
       else if (d === "DURAKLADI") y += " — devam edince «Başladı», bitince «Tamamlandı» girin.";
       else if (d === "GUNSONU") {
+        if (sunucu.adimlar[no] && sunucu.adimlar[no].o03) son = Object.assign({}, son, { oto: false });
         var gz = new Date(son.zaman);
         y = "Gün sonu · " + (gz.toDateString() === new Date().toDateString() ? "" : gz.toLocaleDateString("tr-TR") + " ") + son.saat +
             (son.oto ? " (otomatik — çıkış girilmemişti)" : son.kase ? " · kaşe " + son.kase : "") +
@@ -2445,7 +2446,7 @@
     ["Enerji / altyapı", [["E01", "Elektrik kesintisi"], ["E02", "Basınçlı hava yok"],
                           ["E03", "Vinç / taşıma ekipmanı bekleniyor"]]],
     ["Organizasyon", [["O01", "Operatör başka işe görevlendirildi"], ["O02", "Öncelik değişikliği — araya iş alındı"],
-                      ["O03", "Mesai / vardiya bitimi"], ["O04", "Eğitim / toplantı"], ["O05", "İSG durdurması"]]],
+                      ["O04", "Eğitim / toplantı"], ["O05", "İSG durdurması"]]],
     ["Diğer", [["X99", "Diğer (açıklama yazın)"]]]
   ];
   (function () {
@@ -3900,10 +3901,10 @@ const KB = [
   i:"Gün geçtiyse planlamaya bildir.",b:["fm-haftaici"]},
  {id:"durus-neden",k:"Duraklatma",s:["Duraklatırken hangi nedeni seçmeliyim","duraklama nedeni","neden listesi"],a:["duraklat","durdur","ara ver","neden","sebep","durus","bekleme"],
   y:"«Duraklatıldı» seçince <span class=ui>Duraklama nedeni</span> listesi açılır; neden seçmeden kayıt gönderilmez.",
-  d:["<b>M</b> Malzeme — hammadde yok / hatalı, önceki operasyon","<b>T</b> Takım — kırılma, aşınma / uç, takım yok, ön ayar","<b>F</b> Bağlama — fikstür / aparat, sıfırlama, çene","<b>P</b> Program / doküman — CNC programı, resim, revizyon","<b>A</b> Tezgah arızası — iş mili, eksen, ATC, hidrolik, alarm, soğutma, çarpışma","<b>B</b> Planlı bakım — bakım, kalibrasyon, temizlik","<b>K</b> Kalite — ara ölçüm, ilk parça onayı, CMM, sapma kararı","<b>E</b> Enerji / altyapı — elektrik, hava, vinç","<b>O</b> Organizasyon — başka işe görev, öncelik, O03 mesai bitimi, eğitim, İSG","<b>X99</b> Diğer — açıklama zorunlu"],
+  d:["<b>M</b> Malzeme — hammadde yok / hatalı, önceki operasyon","<b>T</b> Takım — kırılma, aşınma / uç, takım yok, ön ayar","<b>F</b> Bağlama — fikstür / aparat, sıfırlama, çene","<b>P</b> Program / doküman — CNC programı, resim, revizyon","<b>A</b> Tezgah arızası — iş mili, eksen, ATC, hidrolik, alarm, soğutma, çarpışma","<b>B</b> Planlı bakım — bakım, kalibrasyon, temizlik","<b>K</b> Kalite — ara ölçüm, ilk parça onayı, CMM, sapma kararı","<b>E</b> Enerji / altyapı — elektrik, hava, vinç","<b>O</b> Organizasyon — başka işe görev, öncelik, eğitim, İSG (akşam çıkış: «Gün sonu»)","<b>X99</b> Diğer — açıklama zorunlu"],
   n:"Listeye yeni neden yazılmaz; uygun olan yoksa X99 Diğer.",b:["durus-aksam","durus-ariza","durus-takim","durus-malzeme","durus-kalite","durus-organizasyon","durus-diger"]},
  {id:"durus-aksam",k:"Duraklatma",s:["Akşam işi bırakırken ne seçmeliyim","mesai bitti iş yarım kaldı"],a:["aksam","aksam duraklat","mesai bitti","vardiya sonu","eve","birakirken","yarim kaldi","o03"],
-  y:"Akşam iş yarım kalıyorsa <span class=ui>Gün sonu (çıkış)</span> seç; neden gerekmez. (Eski yol «Duraklatıldı · O03» da kabul edilir.)",
+  y:"Akşam iş yarım kalıyorsa <span class=ui>Gün sonu (çıkış)</span> seç; neden gerekmez. «O03 Mesai bitimi» artık listede yok; eskiden girilen O03 de gün sonu sayılır.",
   i:"Ertesi gün işe dönünce QR'ı ya da <b>İşlerim</b>'den işi aç, önce «Başladı / Devam ediyor» gir; süre kaldığı yerden sayılır. Tezgah sen çıktıktan sonra da işliyorsa «Süren iş» seç.",b:["kapanis-zorunlu","suren-is","durus-neden"]},
  {id:"suren-is",k:"Adım",s:["Süren iş nedir","mesai bitti tezgah çalışmaya devam ediyor","seri işte makine gece çalışıyor"],a:["suren is","suren","tezgah calisiyor","makine calisiyor","devam ediyor","gozetimsiz","gece","seri is","mesai bitimi","isik"],
   y:"Seri işte sen çıkarken tezgah işlemeye devam ediyorsa <b>o gün, çıkarken</b> <span class=ui>Süren iş</span> seç. Ertesi gün geriye dönük süren iş girilmez.",
@@ -3999,7 +4000,7 @@ const KB = [
  {id:"durus-enerji",k:"Duraklatma",s:["Elektrik kesildi","hava yok","vinç bekliyorum"],a:["elektrik","kesinti","hava","basincli hava","vinc","tasima","enerji","altyapi","e01","e02","e03"],
   y:"Enerji ve altyapı kaynaklı duruşta <b>E</b> grubundan seç.",d:["<b>E01</b> Elektrik kesintisi","<b>E02</b> Basınçlı hava yok","<b>E03</b> Vinç / taşıma ekipmanı bekleniyor"],b:["durus-neden"]},
  {id:"durus-organizasyon",k:"Duraklatma",s:["Başka işe gönderildim","araya acil iş girdi","eğitime gidiyorum"],a:["baska ise","gorevlendirildim","oncelik","araya is","acil is","egitim","toplanti","isg","o01","o02","o03","o04","o05"],
-  y:"Organizasyon kaynaklı duruşta <b>O</b> grubundan seç.",d:["<b>O01</b> Operatör başka işe görevlendirildi","<b>O02</b> Öncelik değişikliği — araya iş alındı","<b>O03</b> Mesai / vardiya bitimi","<b>O04</b> Eğitim / toplantı","<b>O05</b> İSG durdurması"],b:["durus-neden","durus-aksam"]},
+  y:"Organizasyon kaynaklı duruşta <b>O</b> grubundan seç.",d:["<b>O01</b> Operatör başka işe görevlendirildi","<b>O02</b> Öncelik değişikliği — araya iş alındı","<b>O04</b> Eğitim / toplantı","<b>O05</b> İSG durdurması"],b:["durus-neden","durus-aksam"]},
  {id:"ilk-parca",k:"Adet",s:["İlk parça onayı (FAI) nasıl yapılır","FAI","AS9102"],a:["ilk parca","ilk parca onayi","fai","as9102","ilk numune","onaya gonder"],
   y:"İlk parçayı bitirince, ilk parçayı bildirdiğin kayıtta <span class=ui>İlk parça bitti, onaya (FAI) gönder</span> anahtarını aç (İyi = 1) ve gönder.",
   d:["Adım «İlk parça onayında (FAI)» görünür; bu süre planlı kalite süresidir, duruş sayılmaz.","Sonucu <b>kaliteci</b> ara ölçüm adımında Onay / Ret olarak girer.","<b>Onay</b> gelince adım kendiliğinden «Başladı / Devam ediyor»a geçer.","<b>Ret</b> gelirse uyarı çıkar; süreç durmaz."],
