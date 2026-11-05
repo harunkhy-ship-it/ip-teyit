@@ -728,6 +728,7 @@
 
       <h2 id="adet-baslik">Üretim Adedi</h2>
       <div class="kart" id="adet-kart">
+        <p class="not" id="setup-ilk-not" style="margin-top:0" hidden></p>
         <div class="uclu">
           <label class="alan" style="margin:0">
             <span class="etiket">İyi (bu kayıt)</span>
@@ -1147,7 +1148,7 @@
         asim = kalan < 0;
         t += "\nBu kayıtla: " + yeni + " / " + u.plan +
              (kalan > 0 ? " · Kalan: " + kalan : kalan === 0 ? " · son parça" :
-              " · planı " + (-kalan) + " adet aşıyor");
+              " · planı " + (-kalan) + " adet aşıyor — gönderilmez");
         // Son parça: durum kendiliğinden «Tamamlandı» (operatör değiştirebilir)
         if (kalan <= 0 && u.kalan > 0 && !adetOtoIptal && durum.durum !== "TAMAM") {
           durumUygula("TAMAM");
@@ -2356,6 +2357,7 @@
      numarası taşınırsa operasyon YANLIŞ kişinin üzerine kaydedilir. */
   function formuBosalt() {
     $("#setup-her").checked = false; delete $("#setup-her").dataset.elle;
+    delete $("#iyi").dataset.elle; delete $("#iyi").dataset.setupIlk;
     ["kase", "tezgah", "raf", "bas-tarih", "bas-saat", "bit-tarih", "bit-saat", "suren-tarih", "suren-saat", "kurulum", "isleme",
      "iyi", "hurda", "yeniden", "fai-kase", "apa-no", "sap-metin",
      "sap-adet", "sap-kase", "not-metin"].forEach(function (id) {
@@ -2521,6 +2523,26 @@
     });
     dnkGoster();
     adetGorunurlugu();
+    setupIlkOner();
+  }
+  /* TC 65 / TC 110 / Schaublin 642-Y / Üniversal Torna: setup sırasında 1 parça üretilir. Setup'ı bitiren kayıtta
+     İyi = 1 hazır gelir (değiştirilebilir); panoda net setup = setup − kalan parçaların parça başı süresi. */
+  function setupIlkTezgahi(t) { var n = tezNorm(t || ""); return n === "TC65" || n.indexOf("TC110") === 0 || n.indexOf("SCHAUBLIN642") === 0 || n.indexOf("UNIVERSALTORNA") === 0; }
+  function setupIlkOner() {
+    var not = $("#setup-ilk-not"), iyi = $("#iyi");
+    if (!not || !iyi) return;
+    var son = secili ? (adimDurumlari()[secili[0]] || {}).durum : "";
+    var tz = setupIlkTezgahi($("#tezgah").value), bitir = !!secili && tz && son === "SETUP" && durum.durum !== "SETUP";
+    var basla = !!secili && tz && durum.durum === "SETUP";
+    not.hidden = !(bitir || basla);
+    not.innerHTML = bitir ? "<b>Bu tezgahta setup sırasında 1 parça üretilir:</b> İyi = 1 hazır geldi. Setup'ta parça çıkmadıysa 0 yapın."
+                          : "<b>Bu tezgahta setup sırasında 1 parça üretilir.</b> Setup bitince girdiğiniz kayıtta İyi = 1 hazır gelir; " +
+                            "panoda net setup bu parçanın süresi düşülerek hesaplanır.";
+    if (bitir && !iyi.value && !iyi.dataset.elle) { iyi.value = "1"; iyi.dataset.setupIlk = "1"; iyi.dispatchEvent(new Event("input")); }
+    else if (!bitir && iyi.dataset.setupIlk === "1") {
+      delete iyi.dataset.setupIlk;
+      if (iyi.value === "1") { iyi.value = ""; iyi.dispatchEvent(new Event("input")); }
+    }
   }
 
   /* Form seçilen duruma göre daralır/genişler. Üretim adedi alanları HER
@@ -3014,6 +3036,7 @@
       $("#raf-not").textContent = qr ? "Dijital Depo'dan seçilen malzemenin rafı (İP QR'ından)." : "İP'de raf yok: depocu girer.";
     }
     setupHerGoster();
+    setupIlkOner();
   }
   function setupHerGoster() {
     var t = $("#tezgah").value, g = secili && setupHerTezgahi(t);
@@ -3025,6 +3048,8 @@
     }
   }
   $("#tezgah").addEventListener("change", setupHerGoster);
+  $("#tezgah").addEventListener("change", setupIlkOner);
+  $("#iyi").addEventListener("input", function (e) { if (e.isTrusted) { this.dataset.elle = "1"; delete this.dataset.setupIlk; } });
   $("#setup-her").addEventListener("change", function () { this.dataset.elle = "1"; });
   function adimSec(x) {
     secili = x;
@@ -3076,6 +3101,7 @@
   });
   secimBagla("#durum-secim", "durum");
   $("#durum-secim").addEventListener("click", adetGorunurlugu);
+  $("#durum-secim").addEventListener("click", function (e) { if (e.target.closest("button[data-deger]")) setupIlkOner(); });
   $("#durum-secim").addEventListener("click", function (e) {
     if (!e.target.closest("button[data-deger]")) return;
     durumElle = true;
@@ -3088,6 +3114,7 @@
     adetOzetiCiz();
   });
   $("#iyi").addEventListener("input", adetOzetiCiz);
+  $("#iyi").addEventListener("input", function () { this.parentNode.classList.remove("hatali"); });
   secimBagla("#fai-secim", "fai");
   secimBagla("#apa-secim", "apa");
 
@@ -3258,6 +3285,15 @@
       tezgahAlani().scrollIntoView({ behavior: "smooth", block: "center" });
       hata("Tezgah seçin: işi yaptığınız tezgahı listeden seçmek zorunludur (İP'deki tezgah yalnız öneridir).");
       return;
+    }
+    // Adet sınırı: adımın toplamı plan adedini aşamaz (sunucu da reddeder)
+    var urK = uretimDurumu(secili[0]), buK = parseInt($("#iyi").value, 10) || 0;
+    if (urK.plan != null && urK.plan > 0 && buK > 0 && urK.toplam + buK > urK.plan) {
+      $("#iyi").parentNode.classList.add("hatali");
+      $("#iyi").scrollIntoView({ behavior: "smooth", block: "center" });
+      hata("Plan adedi aşılıyor: bu adımda " + urK.toplam + " / " + urK.plan + " üretilmiş; bu kayda en çok " +
+           Math.max(0, urK.plan - urK.toplam) + " yazabilirsiniz. «İyi» kutusuna yalnız BU kayıtta ürettiğinizi yazın (toplamı değil). " +
+           "Plan adedi yanlışsa planlamaya bildirin."); return;
     }
     if ($("#sap-var").checked && !$("#sap-metin").value.trim()) {
       hata("Sapma isteği için açıklama zorunlu."); return;
@@ -3820,6 +3856,10 @@ const KB = [
   y:"Setup yaparken önce <span class=ui>Setup'ta</span>, setup bitince <span class=ui>Başladı</span> girersin.",
   d:["Hazırlığa başlarken durumu <span class=ui>Setup'ta</span> seç, gönder.","Setup bitip üretime geçince <span class=ui>Başladı</span> gönder."],
   i:"Setup süresi «Setup'ta» kaydından bir sonraki kayda kadar geçen süredir; kendiliğinden hesaplanır.",b:["setup-her-parca","durumlar","kayit-sirasi"]},
+ {id:"setup-ilk-parca",k:"Adım",s:["TC 65 / TC 110 setup'ta parça çıkıyor","Schaublin / Üniversal torna setup","setup sırasında 1 parça ürettim"],a:["tc 65","tc65","tc 110","tc110","schaublin","universal torna","universal","setupta parca","setup sirasinda parca","ilk parca setup","setupta uretildi"],
+  y:"<b>TC 65, TC 110, Schaublin 642-Y ve Üniversal Torna</b>'da setup sırasında 1 parça üretilir: setup'ı bitiren kayıtta <span class=ui>İyi = 1</span> hazır gelir.",
+  d:["Setup'a başlarken «Setup'ta» gir, tezgahı seç; adet yazma.","Setup bitince «Başladı / Devam ediyor» seç: İyi = 1 kendiliğinden gelir (setup'ta parça çıkmadıysa 0 yap).","Sonraki parçaları her zamanki gibi bildir; İyi kutusuna yalnız o kayıtta üretileni yaz."],
+  n:"Panoda net setup = setup süresi − kalan parçaların parça başı süresi; parça başı = setup sonrası işleme ÷ (toplam adet − 1). Toplam süre değişmez.",b:["setup","setup-her-parca","adet-girisi"]},
  {id:"setup-her-parca",k:"Adım",s:["Robofil 440 setup her parçada","Cut P550 setup","her parça için ayrı bağlama"],a:["robofil","cut p550","cut p 550","tel erozyon","setup her parca","her parcada setup","her parca baglama","setup tekrar"],
   y:"Robofil 440 ve Cut P550'de her parça için ayrı bağlama yapılıyorsa <span class=ui>Setup her parçada tekrarlanıyor</span> kutusunu işaretle.",
   d:["Tezgah olarak Robofil 440 ya da Cut P550 seçince kutu çıkar.","İlk setup'ı her zamanki gibi <span class=ui>Setup'ta</span> → <span class=ui>Başladı</span> ile gir, kutuyu işaretle.","Sonraki parçalarda ayrıca «Setup'ta» girmen gerekmez."],
@@ -3867,8 +3907,8 @@ const KB = [
   d:["Kutunun altında «Bu adımda üretilen: 4 / 10 · Kalan: 6» görünür.","Yazdıkça «Bu kayıtla: 7 / 10 · Kalan: 3» olarak güncellenir."],
   n:"Toplamı yazma; herkesin girdiği adetler toplanır.",b:["plan-asildi","otomatik-tamam","hurda"]},
  {id:"plan-asildi",k:"Adet",s:["Plan aşıldı uyarısı","adet özeti kırmızı oldu","kalan varken tamamladım uyarı"],a:["plan asildi","kirmizi","fazla adet","kalan var","uyari","asim"],
-  y:"Girilen adet plan adedini aşarsa özet kırmızıya döner; kalan varken elle «Tamamlandı» seçersen de uyarı çıkar.",
-  d:["Yazdığın adedin bu kayıtta üretilen olduğunu kontrol et (toplam değil).","Gerçekten fazla üretildiyse kaydı gönder; planlama panoda görür."],b:["adet-girisi","otomatik-tamam"]},
+  y:"Adımın toplamı plan adedini aşacaksa özet kırmızıya döner ve <b>kayıt gönderilmez</b>; kalan varken elle «Tamamlandı» seçersen de uyarı çıkar.",
+  d:["<span class=ui>İyi (bu kayıt)</span> kutusuna yalnız bu kayıtta ürettiğini yaz; <b>toplamı yazma</b>.","Bu kayda en çok kalan adet kadar yazılabilir (ör. 6 / 10 üretildiyse en çok 4).","Gerçekten plandan fazla üretildiyse ya da plan adedi yanlışsa planlamaya bildir; plan adedi panoda düzeltilir."],b:["adet-girisi","otomatik-tamam"]},
  {id:"otomatik-tamam",k:"Adet",s:["Durum kendiliğinden Tamamlandı oldu","son parçada tamamlandı seçildi"],a:["kendiliginden","otomatik","tamamlandi oldu","son parca","degisti"],
   y:"Plan adedine ulaşınca durum kendiliğinden <b>Tamamlandı</b> olur.",i:"Adımı kapatmak istemiyorsan başka bir duruma (ör. Duraklatıldı) dokun.",b:["adet-girisi"]},
  {id:"hurda",k:"Adet",s:["Hurda nasıl girilir","yeniden işlem","hatalı parça"],a:["hurda","hatali","yeniden islem","bozuk","fire","red","ret"],
