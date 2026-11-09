@@ -241,6 +241,11 @@
   .islerim .is-satir small{display:block; color:var(--ink2); font-size:12px}
   .islerim .is-satir button{white-space:nowrap; font:inherit; font-size:13px; font-weight:600; padding:6px 12px;
     border-radius:8px; border:1px solid var(--vurgu); background:var(--yuzey); color:var(--vurgu); cursor:pointer}
+  .giris-kart .ikili{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+  .kod-satir{display:flex; gap:6px; align-items:stretch}
+  .kod-satir input{flex:1 1 auto; min-width:0}
+  .kod-satir button{flex:0 0 auto; font:inherit; font-size:13px; font-weight:600; padding:0 10px; border-radius:9px;
+    border:1px solid var(--vurgu); background:var(--yuzey); color:var(--vurgu); cursor:pointer}
   .qr-btn{flex:0 0 auto; height:38px; padding:0 12px; border-radius:9px; font:inherit; font-size:14px; font-weight:600;
     background:var(--vurgu); color:#fff; border:none; cursor:pointer; margin-left:auto}
   .qr-btn + .ayar-btn{margin-left:8px}
@@ -483,19 +488,20 @@
       <p class="giris-baslik">Giriş — Sicil ve Authenticator kodu</p>
       <p class="not" style="margin-top:0">Rotayı görmek ve kayıt girmek için telefonunuzdaki
         <b>Authenticator</b> uygulamasında «İP Saha» altındaki 6 haneli kodu yazın.
-        Giriş gün içinde <b>tüm iş emirlerinde</b> geçerlidir; 17:30'da kapanır. O saatte açık işiniz
-        varsa (mesai / süren iş) kod sorulmadan uzar.</p>
+        Giriş <b>12 saat</b> ve <b>tüm iş emirlerinde</b> geçerlidir: kod günde bir kez sorulur.</p>
       <div class="ikili">
         <label class="alan" style="margin:0"><span class="etiket">Sicil No</span>
-          <input type="text" id="g-sicil" inputmode="numeric" autocomplete="off" placeholder="1147"></label>
+          <input type="text" id="g-sicil" inputmode="numeric" autocomplete="username" placeholder="1147"></label>
         <label class="alan" style="margin:0"><span class="etiket">6 haneli kod</span>
-          <input type="text" id="g-kod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"></label>
+          <span class="kod-satir"><input type="text" id="g-kod" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="6 hane">
+          <button type="button" id="g-yapistir" title="Authenticator'dan kopyaladığınız kodu yapıştırır">Yapıştır</button></span></label>
       </div>
       <button type="button" class="giris-btn" id="g-giris">Giriş yap</button>
       <p class="hata-yazi" id="g-hata" hidden></p>
       <p class="ipucu-giris" id="g-ipucu"><b>Her QR'da kod mu soruyor?</b> QR'ı önizleme, kod tarayıcı ya da başka bir uygulama
         içinde açıyorsunuz; orada giriş saklanmaz. Bir kez Safari'de açıp <b>Paylaş → Ana Ekrana Ekle</b> deyin; sonra
-        ana ekrandaki «İP Saha»yı açıp QR'ları üstteki <b>📷 QR</b> düğmesiyle okutun. Giriş vardiya boyunca korunur.</p>
+        ana ekrandaki «İP Saha»yı açıp QR'ları üstteki <b>📷 QR</b> düğmesiyle okutun. Giriş 12 saat korunur.<br>
+        <b>Kodu kopyaladıysanız</b> «Yapıştır»a dokunun (iPhone «Yapıştır» onayı sorar).</p>
     </div>
     <div class="giris-durum" id="giris-durum" hidden>
       <span id="giris-yazi"></span><button type="button" id="g-cikis">Çıkış</button>
@@ -1190,11 +1196,21 @@
      imzalıdır: sicil, iş emri ve bitiş içinde; kayıt yalnız bu sicil adına yazılır. */
   /* Giriş: sunucu «genel» (vardiya) jetonu verdiyse tüm iş emirlerinde geçerli («muif-giris:*»);
      eski iş emrine bağlı girişler de okunur. */
+  /* Giriş localStorage'da ve yedek olarak çerezde (bazı telefonlar / ana ekran uygulamaları birini silebiliyor) */
+  function cerezOku(ad) {
+    try { var m = new RegExp("(?:^|; )" + ad + "=([^;]*)").exec(document.cookie); return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; }
+  }
+  function cerezYaz(ad, deger, sn) {
+    try { document.cookie = ad + "=" + encodeURIComponent(deger) + "; max-age=" + Math.max(0, Math.floor(sn)) + "; path=/; SameSite=Lax" +
+                            (location.protocol === "https:" ? "; Secure" : ""); } catch (e) {}
+  }
+  function sicilHatirla(s) { try { localStorage.setItem("muif-sicil", s); } catch (e) {} cerezYaz("muif_sicil", s, 400 * 86400); }
+  function sicilOku() { var s = ""; try { s = localStorage.getItem("muif-sicil") || ""; } catch (e) {} return s || cerezOku("muif_sicil"); }
   function girisOku(ie) {
     try {
       var g = JSON.parse(localStorage.getItem("muif-giris:" + (ie || (is && is.ie))) || "null");
       if (g && g.jeton && g.bitis > Date.now()) return g;
-      g = JSON.parse(localStorage.getItem("muif-giris:*") || "null");
+      g = JSON.parse(localStorage.getItem("muif-giris:*") || cerezOku("muif_giris") || "null");
       // 17:30 sonrası: gün sonuna kadar saklanır; açık işi (mesai / süren iş) yoksa sunucu reddeder → giriş kartı
       return g && g.jeton && (g.bitis > Date.now() || (g.mesai_son || 0) > Date.now()) ? g : null;
     } catch (e) { return null; }
@@ -1204,9 +1220,12 @@
       if (g.genel) localStorage.setItem("muif-giris:*", JSON.stringify(g));
       else localStorage.setItem("muif-giris:" + g.ie, JSON.stringify(g));
     } catch (e) {}
+    if (g.genel) cerezYaz("muif_giris", JSON.stringify(g), (Math.max(g.bitis || 0, g.mesai_son || 0) - Date.now()) / 1000);
+    if (g.sicil) sicilHatirla(g.sicil);
   }
   function girisSil(ie) {
     try { localStorage.removeItem("muif-giris:" + (ie || (is && is.ie))); localStorage.removeItem("muif-giris:*"); } catch (e) {}
+    cerezYaz("muif_giris", "", 0);
     kapanisGenel = []; kapanisGenelCiz();
     islerimSunucu = []; islerimCiz();
   }
@@ -1254,6 +1273,7 @@
     var g = is ? girisOku() : null;
     document.body.classList.toggle("girissiz", !g);
     $("#giris-kart").hidden = !!g;
+    if (!g && !$("#g-sicil").value) $("#g-sicil").value = sicilOku();       // son girişteki sicil hazır gelir
     $("#giris-durum").hidden = !g;
     if (g) {
       $("#giris-yazi").textContent = "Giriş: " + g.sicil + (g.ad ? " · " + g.ad : "") +
@@ -1293,6 +1313,32 @@
       b.disabled = false; b.textContent = "Giriş yap";
       h.textContent = "Bağlantı yok ya da servis cevap vermedi. Tekrar deneyin."; h.hidden = false;
     });
+  });
+  function kodTemizle(t) { var d = String(t || "").replace(/\D/g, ""); return d.length > 6 ? d.slice(-6) : d; }
+  var kodOtoGiris = 0;
+  function kodYazildi() {
+    var k = $("#g-kod"), d = kodTemizle(k.value);
+    if (k.value !== d) k.value = d;
+    if (d.length === 6 && $("#g-sicil").value.replace(/\D/g, "") && !$("#g-giris").disabled && Date.now() - kodOtoGiris > 3000) {
+      kodOtoGiris = Date.now(); $("#g-giris").click();
+    }
+  }
+  $("#g-kod").addEventListener("input", kodYazildi);
+  $("#g-kod").addEventListener("paste", function (e) {
+    var t = e.clipboardData && e.clipboardData.getData("text");
+    if (t) { e.preventDefault(); this.value = kodTemizle(t); kodYazildi(); }
+  });
+  $("#g-yapistir").addEventListener("click", function () {
+    var h = $("#g-hata"), k = $("#g-kod");
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then(function (t) {
+        var d = kodTemizle(t);
+        if (d.length !== 6) { h.textContent = "Panoda 6 haneli kod yok. Authenticator'da koda dokunup kopyalayın."; h.hidden = false; return; }
+        h.hidden = true; k.value = d; kodYazildi();
+      }, function () {
+        k.focus(); h.textContent = "Yapıştırılamadı: kod kutusuna basılı tutup «Yapıştır»ı seçin."; h.hidden = false;
+      });
+    } else { k.focus(); h.textContent = "Kod kutusuna basılı tutup «Yapıştır»ı seçin."; h.hidden = false; }
   });
   $("#g-cikis").addEventListener("click", function () {
     girisSil();
@@ -3702,7 +3748,10 @@
     delete $("#btn-ana").dataset.mod; $("#btn-geri").hidden = true;
     kunyeyiCiz(); listeyiCiz(); ilerlemeyiCiz();
     girisGoster();
-    if (!girisOku()) setTimeout(function () { try { $("#g-sicil").focus(); } catch (e) {} }, 300);
+    if (!girisOku()) {
+      if (!$("#g-sicil").value) $("#g-sicil").value = sicilOku();
+      setTimeout(function () { try { ($("#g-sicil").value ? $("#g-kod") : $("#g-sicil")).focus(); } catch (e) {} }, 300);
+    }
     sunucu = { adimlar: {}, hal: "yok" };
     sunucuYukle();
   }
@@ -3811,9 +3860,9 @@ const KB = [
   y:"Kod 30 saniyede bir yenilenir; süresi dolmak üzere olan kod reddedilebilir.",
   d:["Authenticator'da yeni kodun çıkmasını bekle, yeni kodu yaz.","Doğru satırı kullandığından emin ol: <b>İP Saha (kendi sicilin)</b>.","Telefonun saatinin <b>otomatik</b> ayarda olduğunu kontrol et."],
   n:"5 kez yanlış kod girilirse giriş 5 dakika kilitlenir; 5 dakika sonra tekrar dene.",i:"Hâlâ olmuyorsa planlamaya söyle; kurulumun yenilenmesi gerekebilir.",b:["kurulum","telefon-degisti"]},
- {id:"giris-suresi",k:"Giriş",s:["Neden tekrar kod soruyor","giriş ne kadar geçerli","kod her seferinde soruluyor mu"],a:["tekrar","yeniden","her seferinde","sure","gecerli","ne zamana kadar","oturum suresi"],
-  y:"Kod günde <b>bir kez</b> sorulur; giriş gün içinde <b>tüm iş emirlerinde</b> geçerlidir.",
-  d:["Giriş <b>17:30</b>'da kendiliğinden kapanır.","O saatte sende <b>açık iş</b> varsa (mesai ya da süren iş girmen gerekiyorsa) giriş kod sorulmadan uzar (21:00'e, sonra 2'şer saat).","Açık işin yoksa 17:30'dan sonra yeni kayıt için yeniden kod istenir.","Her QR'da yine kod soruyorsa QR'ı önizleme / kod tarayıcı / başka uygulama içinde açıyorsun: orada giriş saklanmaz. Bir kez Safari'de açıp <span class=ui>Paylaş → Ana Ekrana Ekle</span> de; sonra ana ekrandaki «İP Saha»dan üstteki <span class=ui>📷 QR</span> ile okut."],
+ {id:"giris-suresi",k:"Giriş",s:["Neden tekrar kod soruyor","giriş ne kadar geçerli","kodu yapıştıramıyorum"],a:["tekrar","yeniden","her seferinde","sure","gecerli","ne zamana kadar","oturum suresi","yapistir","yapistiramiyorum","kopyala","paste","sicil gelmiyor","sicil otomatik"],
+  y:"Kod günde <b>bir kez</b> sorulur; giriş <b>12 saat</b> ve <b>tüm iş emirlerinde</b> geçerlidir.",
+  d:["Sicil numaran son girişten hatırlanır, kutuya kendiliğinden gelir; yalnız kodu yazarsın.","Kodu Authenticator'dan kopyaladıysan kod kutusunun yanındaki <span class=ui>Yapıştır</span>'a dokun (iPhone «Yapıştır» onayı sorar). 6 hane tamamlanınca giriş kendiliğinden yapılır.","12 saat dolduğunda sende <b>açık iş</b> varsa (mesai / süren iş) giriş kod sorulmadan uzar.","Her QR'da yine kod soruyorsa QR'ı önizleme / kod tarayıcı / başka uygulama içinde açıyorsun: orada giriş saklanmaz. Bir kez Safari'de açıp <span class=ui>Paylaş → Ana Ekrana Ekle</span> de; sonra ana ekrandaki «İP Saha»dan üstteki <span class=ui>📷 QR</span> ile okut."],
   i:"Bağlantısızken girilip bekleyen kayıt, yeniden giriş yapınca gönderilir.",b:["qr-uygulama-ici","giris","baglanti-yok"]},
  {id:"qr-uygulama-ici",k:"QR",s:["Her QR'da şifre soruyor","QR'ı uygulamanın içinden okutma","Ana ekrana nasıl eklerim (iPhone / Android)"],a:["her seferinde sifre","her qr","onizleme","kod tarayici","ana ekran","ana ekrana ekle","uygulama","qr butonu","kamera butonu","giris saklanmiyor"],
   y:"Sayfayı bir kez ana ekrana ekle, QR'ları sayfanın kendi <span class=ui>📷 QR</span> düğmesiyle okut: kod günde bir kez sorulur.",
