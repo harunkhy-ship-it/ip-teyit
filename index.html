@@ -542,7 +542,8 @@
         <div class="yk-dugmeler">
           <button type="button" class="tehlike" id="yk-iptal">Adımı iptal et</button>
           <button type="button" id="yk-geri">Son kaydı geri al</button>
-          <button type="button" id="yk-adet">Adet düzelt</button>
+          <button type="button" id="yk-adet">Adım adedini düzelt</button>
+          <button type="button" id="yk-ieadet">İş emri adedini düzelt</button>
         </div>
         <div class="yk-dugmeler" style="margin-top:8px">
           <button type="button" id="yk-yukari">▲ Yukarı taşı</button>
@@ -565,7 +566,7 @@
             <select id="yk-ekle-alt" style="width:100%; margin-top:8px; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)"></select>
           </div>
           <div id="yk-adet-alan" hidden>
-            <label class="alan" style="margin:8px 0 0"><span class="etiket">Adımın doğru toplam iyi adedi</span>
+            <label class="alan" style="margin:8px 0 0"><span class="etiket" id="yk-adet-etiket">Adımın doğru toplam iyi adedi</span>
               <input type="number" id="yk-adet-yeni" inputmode="numeric" min="0" step="1"></label>
             <p class="not" id="yk-adet-not" style="margin:6px 0 0"></p>
           </div>
@@ -1502,7 +1503,8 @@
   function ykBasla(islem) {
     ykIslem = islem;
     $("#yk-ekle-alan").hidden = islem.ekle !== "YAP";
-    $("#yk-adet-alan").hidden = islem.durum !== "ADET";
+    $("#yk-adet-alan").hidden = islem.durum !== "ADET" && !islem.ieAdet;
+    $("#yk-adet-etiket").textContent = islem.ieAdet ? "İş emrinin doğru adedi (plan)" : "Adımın doğru toplam iyi adedi";
     $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
     $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
     $("#yk-gonder").textContent = islem.ekle === "YAP" ? "Onayla: " + islem.yazi + " sonrasına adım ekle"
@@ -1511,7 +1513,8 @@
       : islem.paralel === "KALDIR" ? "Onayla: paraleli kaldır (" + islem.yazi + ")"
       : islem.sira === "TASI" ? "Onayla: " + islem.yazi
       : islem.sira === "GERIAL" ? "Onayla: sıra değişikliğini geri al"
-      : islem.durum === "ADET" ? "Onayla: adedi düzelt"
+      : islem.ieAdet ? "Onayla: iş emri adedini düzelt"
+      : islem.durum === "ADET" ? "Onayla: adım adedini düzelt"
       : islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
       : islem.iptalKaldir ? "Onayla: iptali kaldır" : "Onayla: son kaydı geri al";
   }
@@ -1957,6 +1960,17 @@
     if (u && u.son_kid) ykBasla({ durum: "GERIAL", ref: u.son_kid });
   });
   $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; $("#yk-ekle-alan").hidden = true; $("#yk-adet-alan").hidden = true; });
+  /* İş emri adedi: yönetici iş emrinin plan adedini düzeltir (rota kartı düzeltmesi olarak; her telefonda geçerli) */
+  $("#yk-ieadet").addEventListener("click", function () {
+    if (!is) return;
+    ykBasla({ ieAdet: true });
+    $("#yk-adet-yeni").value = is.adet != null ? String(is.adet) : "";
+    $("#yk-adet-not").textContent = "Şu an iş emri adedi: " + (is.adet != null && is.adet !== "" ? is.adet : "—") +
+      (is.asil && String(is.asil.adet) !== String(is.adet) ? " (QR'da " + is.asil.adet + ")" : "") +
+      ". Yeni adet panodaki rota kartına düzeltme olarak yazılır; her telefonda en geç 1 dakikada geçerli olur, " +
+      "adım adet sınırı da bu sayıya göre işler.";
+    setTimeout(function () { try { $("#yk-adet-yeni").focus(); $("#yk-adet-yeni").select(); } catch (e) {} }, 50);
+  });
   /* Adet düzelt: yönetici adımın doğru toplam iyi adedini yazar; fark (+/−) ayrı «Adet düzeltme» kaydı olur */
   $("#yk-adet").addEventListener("click", function () {
     if (!secili) return;
@@ -1978,6 +1992,28 @@
       h.textContent = "Eklenecek adımın adını yazın."; h.hidden = false; $("#yk-ekle-ad").focus(); return;
     }
     if (ykIslem.sira || ykIslem.paralel || ykIslem.ekle) { siraGonder(g, grk, b, h); return; }
+    if (ykIslem.ieAdet) {
+      var ya = parseInt($("#yk-adet-yeni").value, 10);
+      if (!(ya > 0)) { h.textContent = "Geçerli bir iş emri adedi yazın."; h.hidden = false; return; }
+      if (String(ya) === String(is.adet)) { h.textContent = "İş emri adedi zaten " + ya + "."; h.hidden = false; return; }
+      b.disabled = true;
+      servisPost({ islem: "ieAdet", jeton: g.jeton, ie: is.ie, adet: ya, gerekce: grk,
+                   rota: { kn: is.kn, rev: is.rev, raf: is.raf, adet: is.adet, a: is.aQR || is.a } })
+      .then(function (r) {
+        b.disabled = false;
+        if (!r || !r.ok) {
+          if (r && r.hata === "giris_gerekli") { girisSil(); girisGoster(); }
+          h.textContent = (r && r.mesaj) || "İşlem yapılamadı."; h.hidden = false; return;
+        }
+        ykIslem = null; $("#yk-onay").hidden = true; $("#yk-adet-alan").hidden = true;
+        if (r.rota !== undefined) rotaKartiUygula(r.rota);
+        $("#yk-yazi").textContent = "İş emri adedi " + (r.onceki == null ? "—" : r.onceki) + " → " + r.adet + " olarak düzeltildi.";
+        adetOzetiCiz();
+      }).catch(function () {
+        b.disabled = false; h.textContent = "Bağlantı yok; yönetici işlemleri çevrimiçi yapılır. Tekrar deneyin."; h.hidden = false;
+      });
+      return;
+    }
     var adetYeni = null;
     if (ykIslem.durum === "ADET") {
       adetYeni = parseInt($("#yk-adet-yeni").value, 10);
