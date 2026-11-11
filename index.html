@@ -242,6 +242,8 @@
   .islerim .is-satir button{white-space:nowrap; font:inherit; font-size:13px; font-weight:600; padding:6px 12px;
     border-radius:8px; border:1px solid var(--vurgu); background:var(--yuzey); color:var(--vurgu); cursor:pointer}
   .giris-kart .ikili{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+  .hizli-tamam{width:100%; margin:0 0 12px; padding:14px; border-radius:var(--r); font:inherit; font-size:16px; font-weight:700;
+    background:var(--ok, #127A4B); color:#fff; border:none; cursor:pointer}
   .kod-satir{display:flex; gap:6px; align-items:stretch}
   .kod-satir input{flex:1 1 auto; min-width:0}
   .kod-satir button{flex:0 0 auto; font:inherit; font-size:13px; font-weight:600; padding:0 10px; border-radius:9px;
@@ -588,6 +590,7 @@
           <span class="cip ac" id="adim-durum-cip">Açık</span>
           <span id="adim-durum-yazi">Bu adımda henüz kayıt yok.</span>
         </div>
+        <button type="button" class="hizli-tamam" id="hizli-tamam" hidden>✓ Doğrudan Tamamlandı</button>
         <label class="alan" style="margin-top:0">
           <span class="etiket">Durum</span>
           <div class="secim" id="durum-secim">
@@ -2183,6 +2186,7 @@
     $("#btn-ana").disabled = !devralTusu && (!!e || !g || !!bekleyenDevral || !!kpEngel);
     mkyGoster();
     yoneticiGoster(no);
+    hizliTamamGoster(no);
     $("#btn-ana").textContent = e ? (iptalEngeli(no) ? "Adım iptal edildi" : altyapiEngeli(secilenAdim(no))
                                       ? (altyapiEngeli(secilenAdim(no)).kaliteci ? "Yalnız Ara Ölçüm" : "Başka altyapının adımı")
                                       : mz ? "Önce malzeme onayı" : e.anaBekle ? "Ana adım başlamadı" : "Önceki adım kapanmadı")
@@ -3025,6 +3029,16 @@
     if (/^HAM MALZEME (ETİKETLEME|İŞARETLEME)/.test(a)) return "etiket";
     return "";
   }
+  /* Sevk / Kaplama (dış proses): «✓ Doğrudan Tamamlandı» tek dokunuşla kapatılır */
+  function hizliTamamAdimi(x) {
+    var a = altNorm(String(x && x[1] || ""));
+    return /^SEVK\b/.test(a) || /KAPLAMA/.test(a);
+  }
+  function hizliTamamGoster(no) {
+    var b = $("#hizli-tamam"); if (!b) return;
+    var x = secilenAdim(no), son = (adimDurumlari()[no] || {}).durum || "";
+    b.hidden = !(x && hizliTamamAdimi(x) && girisOku() && !tumEngel(no) && son !== "TAMAM" && son !== "IPTAL" && son !== "GUNSONU");
+  }
   function setupHerTezgahi(t) { var n = tezNorm(t || ""); return n.indexOf("ROBOFIL440") >= 0 || n.indexOf("CUTP550") >= 0; }
   function tezgahGerekli(x) {          // sunucudaki tezgahGerekli_ ile aynı kural
     if (!x) return false;
@@ -3095,6 +3109,11 @@
   }
   $("#tezgah").addEventListener("change", setupHerGoster);
   $("#tezgah").addEventListener("change", setupIlkOner);
+  $("#hizli-tamam").addEventListener("click", function () {
+    if (!secili) return;
+    durumElle = true; durumUygula("TAMAM"); adetGorunurlugu();
+    if (!$("#btn-ana").disabled) $("#btn-ana").click();
+  });
   $("#iyi").addEventListener("input", function (e) { if (e.isTrusted) { this.dataset.elle = "1"; delete this.dataset.setupIlk; } });
   $("#setup-her").addEventListener("change", function () { this.dataset.elle = "1"; });
   function adimSec(x) {
@@ -3905,6 +3924,10 @@ const KB = [
   y:"Setup yaparken önce <span class=ui>Setup'ta</span>, setup bitince <span class=ui>Başladı</span> girersin.",
   d:["Hazırlığa başlarken durumu <span class=ui>Setup'ta</span> seç, gönder.","Setup bitip üretime geçince <span class=ui>Başladı</span> gönder."],
   i:"Setup süresi «Setup'ta» kaydından bir sonraki kayda kadar geçen süredir; kendiliğinden hesaplanır.",b:["setup-her-parca","durumlar","kayit-sirasi"]},
+ {id:"sevk-kaplama",k:"Adım",s:["Sevk / Kaplama adımı nasıl kapatılır","Doğrudan Tamamlandı düğmesi","dış proses adımı"],a:["sevk","kaplama","dis proses","dogrudan tamamlandi","tek dokunus","hizli tamam","sevk kaplama"],
+  y:"<b>Sevk</b> ve <b>Kaplama</b> adımlarında formun üstünde <span class=ui>✓ Doğrudan Tamamlandı</span> düğmesi var: tek dokunuşla «Tamamlandı» seçilir ve kayıt gönderilir.",
+  d:["Adımı seç, yeşil <span class=ui>✓ Doğrudan Tamamlandı</span>'ya dokun.","Tezgah sorulmaz; «Gönderildi» görünce iş tamam.","Süre tutmak istersen düğmeyi kullanma: önce «Başladı / Devam ediyor», dönünce «Tamamlandı» gir."],
+  b:["kayit-sirasi","durumlar"]},
  {id:"setup-ilk-parca",k:"Adım",s:["TC 65 / TC 110 setup'ta parça çıkıyor","Schaublin / Üniversal torna setup","setup sırasında 1 parça ürettim"],a:["tc 65","tc65","tc 110","tc110","schaublin","universal torna","universal","setupta parca","setup sirasinda parca","ilk parca setup","setupta uretildi"],
   y:"<b>TC 65, TC 110, Schaublin 642-Y ve Üniversal Torna</b>'da setup sırasında 1 parça üretilir: setup'ı bitiren kayıtta <span class=ui>İyi = 1</span> hazır gelir.",
   d:["Setup'a başlarken «Setup'ta» gir, tezgahı seç; adet yazma.","Setup bitince «Başladı / Devam ediyor» seç: İyi = 1 kendiliğinden gelir (setup'ta parça çıkmadıysa 0 yap).","Sonraki parçaları her zamanki gibi bildir; İyi kutusuna yalnız o kayıtta üretileni yaz."],
