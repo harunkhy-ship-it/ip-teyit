@@ -542,6 +542,7 @@
         <div class="yk-dugmeler">
           <button type="button" class="tehlike" id="yk-iptal">Adımı iptal et</button>
           <button type="button" id="yk-geri">Son kaydı geri al</button>
+          <button type="button" id="yk-adet">Adet düzelt</button>
         </div>
         <div class="yk-dugmeler" style="margin-top:8px">
           <button type="button" id="yk-yukari">▲ Yukarı taşı</button>
@@ -562,6 +563,11 @@
             <input type="text" id="yk-ekle-ad" maxlength="80" autocomplete="off" placeholder="Eklenecek adımın adı (ör. Hassas Taşlama)"
                    style="width:100%; margin-top:8px; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink); box-sizing:border-box">
             <select id="yk-ekle-alt" style="width:100%; margin-top:8px; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)"></select>
+          </div>
+          <div id="yk-adet-alan" hidden>
+            <label class="alan" style="margin:8px 0 0"><span class="etiket">Adımın doğru toplam iyi adedi</span>
+              <input type="number" id="yk-adet-yeni" inputmode="numeric" min="0" step="1"></label>
+            <p class="not" id="yk-adet-not" style="margin:6px 0 0"></p>
           </div>
           <textarea id="yk-gerekce" maxlength="300" placeholder="Gerekçe (zorunlu)"></textarea>
           <div class="yk-dugmeler" style="margin-top:8px">
@@ -1484,8 +1490,10 @@
     $("#yk-iptal").textContent = iptal ? "İptali kaldır" : "Adımı iptal et";
     $("#yk-iptal").className = iptal ? "" : "tehlike";
     $("#yk-geri").hidden = iptal || !d;
+    $("#yk-adet").hidden = iptal || !d;
     $("#yk-yazi").textContent = !sunucu.zaman ? "Ortak durum okunuyor…"
       : iptal ? "Adım iptal edildi" + (u.iptal_gerekce ? " (gerekçe: " + u.iptal_gerekce + ")" : "") + "."
+      : d && u.son_adet ? "Son kayıt: Adet düzeltme · adım durumu " + (DURUM_AD[d] || d) + " · toplam iyi " + (u.iyi || 0)
       : d ? "Son kayıt: " + (DURUM_AD[d] || d) + " · " + saatYaz(u.zaman) + (u.son_kase ? " · " + u.son_kase : "")
       : "Bu adımda kayıt yok.";
     if (!ykIslem) $("#yk-onay").hidden = true;
@@ -1494,6 +1502,7 @@
   function ykBasla(islem) {
     ykIslem = islem;
     $("#yk-ekle-alan").hidden = islem.ekle !== "YAP";
+    $("#yk-adet-alan").hidden = islem.durum !== "ADET";
     $("#yk-onay").hidden = false; $("#yk-hata").hidden = true;
     $("#yk-gerekce").value = ""; $("#yk-gerekce").focus();
     $("#yk-gonder").textContent = islem.ekle === "YAP" ? "Onayla: " + islem.yazi + " sonrasına adım ekle"
@@ -1502,6 +1511,7 @@
       : islem.paralel === "KALDIR" ? "Onayla: paraleli kaldır (" + islem.yazi + ")"
       : islem.sira === "TASI" ? "Onayla: " + islem.yazi
       : islem.sira === "GERIAL" ? "Onayla: sıra değişikliğini geri al"
+      : islem.durum === "ADET" ? "Onayla: adedi düzelt"
       : islem.durum === "IPTAL" ? "Onayla: adımı iptal et"
       : islem.iptalKaldir ? "Onayla: iptali kaldır" : "Onayla: son kaydı geri al";
   }
@@ -1946,7 +1956,18 @@
     var u = secili && sunucu.adimlar[secili[0]];
     if (u && u.son_kid) ykBasla({ durum: "GERIAL", ref: u.son_kid });
   });
-  $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; $("#yk-ekle-alan").hidden = true; });
+  $("#yk-vazgec").addEventListener("click", function () { ykIslem = null; $("#yk-onay").hidden = true; $("#yk-ekle-alan").hidden = true; $("#yk-adet-alan").hidden = true; });
+  /* Adet düzelt: yönetici adımın doğru toplam iyi adedini yazar; fark (+/−) ayrı «Adet düzeltme» kaydı olur */
+  $("#yk-adet").addEventListener("click", function () {
+    if (!secili) return;
+    var u = sunucu.adimlar[secili[0]] || {}, ur = uretimDurumu(secili[0]);
+    ykBasla({ durum: "ADET" });
+    $("#yk-adet-yeni").value = String(u.iyi || 0);
+    $("#yk-adet-not").textContent = "Şu an toplam: " + (u.iyi || 0) + (ur.plan != null ? " / plan " + ur.plan : "") +
+      ". Yazdığınız sayı adımın yeni toplamı olur; fark ayrı bir «Adet düzeltme» kaydı olarak yazılır (eski kayıtlar silinmez, " +
+      "«Son kaydı geri al» ile geri alınabilir).";
+    setTimeout(function () { try { $("#yk-adet-yeni").focus(); $("#yk-adet-yeni").select(); } catch (e) {} }, 50);
+  });
   $("#yk-gonder").addEventListener("click", function () {
     var g = girisOku(), b = this, h = $("#yk-hata");
     var grk = $("#yk-gerekce").value.replace(/[|\n\r]/g, " ").trim();
@@ -1957,18 +1978,26 @@
       h.textContent = "Eklenecek adımın adını yazın."; h.hidden = false; $("#yk-ekle-ad").focus(); return;
     }
     if (ykIslem.sira || ykIslem.paralel || ykIslem.ekle) { siraGonder(g, grk, b, h); return; }
+    var adetYeni = null;
+    if (ykIslem.durum === "ADET") {
+      adetYeni = parseInt($("#yk-adet-yeni").value, 10);
+      var mevcut = (sunucu.adimlar[secili[0]] || {}).iyi || 0;
+      if (isNaN(adetYeni) || adetYeni < 0) { h.textContent = "Doğru toplam iyi adedi yazın (0 ya da daha büyük)."; h.hidden = false; return; }
+      if (adetYeni === mevcut) { h.textContent = "Adımın toplamı zaten " + mevcut + "."; h.hidden = false; return; }
+    }
     var p = ["MUIF"];
     function ek(k, v) { if (v !== "" && v != null) p.push(k + ":" + String(v).replace(/[|\n\r]/g, " ")); }
     ek("KID", yeniKid()); ek("IE", is.ie); ek("KN", is.kn); ek("REV", is.rev);
     ek("ADET", is.adet); ek("TOP", is.a.length);
     ek("ADIM", secili[0]); ek("AD", secili[1]); ek("ALT", secili[2]);
     ek("D", ykIslem.durum); ek("KASE", g.sicil); ek("GRK", grk); ek("REF", ykIslem.ref);
+    if (adetYeni != null) ek("ADETDUZ", adetYeni);
     ek("T", new Date().toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }));
     var metin = p.join("|");
     b.disabled = true;
     servisPost({ islem: "kayit", jeton: g.jeton, kayit: {
       ie: is.ie, adim_no: secili[0], adim_ad: secili[1], durum: ykIslem.durum, gerekce: grk,
-      ref: ykIslem.ref || "", metin: metin, olusma: Date.now(), altyapi: secili[2] || "" } })
+      ref: ykIslem.ref || "", metin: metin, olusma: Date.now(), altyapi: secili[2] || "", adet_yeni: adetYeni } })
     .then(function (r) {
       b.disabled = false;
       if (!r || !r.ok) {
