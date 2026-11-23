@@ -1406,9 +1406,21 @@
     if ((u && u.zaman && u.zaman > t) || (yerel && yerel.zaman > t)) return simdi;
     return t;
   }
+  /* Zincirleme başlangıç: adımın bir önceki kaydının son saati (açılışta BAS, kapanışta BIT) yeni kaydın
+     başlangıcı olarak önerilir; kişi değiştirebilir. Açılışta yalnız aynı gün (ya da en çok 4 saat önce) önerilir,
+     yoksa QR okutma saati gelir. */
+  function oncekiSonAn(no) {
+    var t = no ? acilisAltSinir(no) : 0;
+    return t && t <= Date.now() + 60000 ? t : 0;
+  }
+  function oneriBaslangic(no) {
+    var t = oncekiSonAn(no), simdi = Date.now();
+    if (!t) return null;
+    return gunYazi(t) === gunYazi(simdi) || simdi - t <= 4 * 3600000 ? t : null;
+  }
   function acilisSaatiYaz() {
     if (basElle()) { basGeriNot(); return; }       // kişi işe başladığı saati elle (geriye dönük) girdi
-    var qz = acilisBaslangici(secili && secili[0]);
+    var qz = oneriBaslangic(secili && secili[0]) || acilisBaslangici(secili && secili[0]);
     $("#bas-tarih").value = gunYazi(qz); $("#bas-saat").value = new Date(qz).toTimeString().slice(0, 5);
     $("#bas-tarih").dataset.oto = "1"; $("#bas-saat").dataset.oto = "1";
     basGeriNot();
@@ -1472,7 +1484,12 @@
     var h = basElle() ? acilisBasHatasi(bz) : "";
     if (h) { n.textContent = h; n.style.color = "#B3261E"; n.hidden = false; return; }
     n.style.color = "";
-    if (basElle() && bz != null && Math.abs(qz - bz) >= 60000) {
+    var oz = oneriBaslangic(secili && secili[0]);
+    if (!basElle() && oz && bz != null && Math.abs(oz - bz) < 60000 && Math.abs(qz - bz) >= 60000) {
+      n.textContent = "Önceki kayıttan önerildi: " + tarihSaat(bz) + " (bu adımın son kaydı). İşe daha sonra başladıysanız saati düzeltin; " +
+                      "şimdi başlıyorsanız «Şimdi»ye dokunun.";
+      n.hidden = false;
+    } else if (basElle() && bz != null && Math.abs(qz - bz) >= 60000) {
       n.textContent = "Geriye dönük başlangıç: " + tarihSaat(bz) + " (QR okutma " + new Date(qz).toTimeString().slice(0, 5) +
                       "). Süre bu saatten sayılır; kayıtta elle girildiği görünür.";
       n.hidden = false;
@@ -2814,10 +2831,13 @@
       // «Başladı» / «Setup'ta»: QR okutma saati
       acilisSaatiYaz();
     } else {
-      // Kapatırken: başlangıç ilk açılış kaydından (tarih + saat), bitiş şimdi
-      var su = secili && sunucu.adimlar && sunucu.adimlar[secili[0]];
+      // Kapatırken: başlangıç bir önceki kaydın son saatinden (yoksa ilk açılıştan), bitiş şimdi
+      var su = secili && sunucu.adimlar && sunucu.adimlar[secili[0]], onc = secili ? oncekiSonAn(secili[0]) : 0;
       var sb = su && /^[0-9]{2}\.[0-9]{2}\.[0-9]{4} [0-9]{2}:[0-9]{2}$/.test(su.seg_bas || su.bas || "") ? (su.seg_bas || su.bas) : "";
-      if (ilk) {
+      if (onc) {
+        otoDoldur("#bas-tarih", gunYazi(onc));
+        otoDoldur("#bas-saat", new Date(onc).toTimeString().slice(0, 5));
+      } else if (ilk) {
         otoDoldur("#bas-tarih", ilk.basZ ? gunYazi(ilk.basZ) : bugun);
         otoDoldur("#bas-saat", ilk.bas);
       } else if (sb) {                            // bu telefonda kayıt yok: ortak kayıttaki açılış
@@ -2840,6 +2860,11 @@
         }
       }
       if (d === "SUREN" && !$("#suren-tarih").value) $("#suren-tarih").value = $("#bit-tarih").value || bugun;
+      var kbz = kutudanZaman("#bas-tarih", "#bas-saat");
+      if (onc && kbz != null && Math.abs(kbz - onc) < 60000 && !etiket) {
+        $("#bas-geri-not").textContent = "Başlangıç bu adımın bir önceki kaydından (" + tarihSaat(onc) + ") önerildi; gerekirse değiştirin.";
+        $("#bas-geri-not").style.color = ""; $("#bas-geri-not").hidden = false;
+      }
     }
     bitGeriNot();
     sureOzeti();
@@ -3445,8 +3470,8 @@
     if (durum.durum === "SUREN") ek("SUREN_BIT", tarihSaat(kutudanZaman("#suren-tarih", "#suren-saat")));
     var sh = sonSure = sureHesabi();
     ek("BAS", sh.basZ != null ? tarihSaat(sh.basZ) : $("#bas-saat").value);
-    if (acilisMi(durum.durum) && basElle() && sh.basZ != null &&
-        Math.abs(acilisBaslangici(secili[0]) - sh.basZ) >= 60000) ek("BASELLE", "E");   // geriye dönük başlangıç
+    if (acilisMi(durum.durum) && sh.basZ != null &&
+        Math.abs(acilisBaslangici(secili[0]) - sh.basZ) >= 60000) ek("BASELLE", "E");   // geriye dönük başlangıç (öneri ya da elle)
     if (!acilisMi(durum.durum)) {              // iş yeni açıldıysa bitiş/süre olmaz
       ek("BIT", sh.bitZ != null ? tarihSaat(sh.bitZ) : $("#bit-saat").value);
       if (bitElle() && sh.bitZ != null && Date.now() - sh.bitZ >= 60000) ek("BITELLE", "E");   // geriye dönük bitiş
@@ -4238,8 +4263,8 @@ const KB = [
   d:["Adımı ve durumu seç; Bitiş kutusunda saati düzelt (ya da <span class=ui>12:45</span> · <span class=ui>17:30</span> düğmesi).","Kutunun altında «Geriye dönük bitiş: …» yazısını kontrol et, sonra <span class=ui>Kaydet ve Gönder</span>.","Kayıtta saatin elle girildiği görünür."],
   n:"Bitiş şu andan ileri ve adımın son kaydından (ör. başlama saatinden) önce olamaz.",b:["geri-baslangic","sonradan-giris","saatler"]},
  {id:"qr-baslangic",k:"Saat",s:["Giriş saatim nereden geliyor","başlangıç saati QR saati mi","geç geldim saat"],a:["giris saati","baslangic saati","degismiyor","degistiremiyorum","qr saati","gelis","gec geldim","erken geldim"],
-  y:"«Başladı / Devam ediyor» ve «Setup'ta» kaydının başlangıcı QR'ı okuttuğun anla gelir. İşe daha önce başladıysan gerçek saati girebilirsin (bkz. geriye dönük başlangıç).",
-  d:["İşe gelince ilk iş QR'ı okut.","Aynı sayfada ikinci açılış kaydında (ör. öğleden sonra devam) başlangıç kaydı gönderdiğin andır.","Sayfa 4 saatten uzun açık kaldıysa da gönderdiğin an kullanılır."],
+  y:"Adımın <b>ilk</b> kaydında başlangıç QR'ı okuttuğun anla gelir. Sonraki her kayıtta (Setup → Başladı → Duraklatıldı → Devam → Tamamlandı) başlangıç, bu adımın <b>bir önceki kaydının son saatiyle</b> önerilir; gerekirse değiştirirsin.",
+  d:["İşe gelince ilk iş QR'ı okut.","Örnek: Setup 09:00 girdin → «Başladı»da başlangıç 09:00 önerilir; işe 09:45'te başladıysan 09:45 yaz.","Duraklatmayı 11:20 bitişle girdin → devam ederken başlangıç 11:20 önerilir; işe şimdi dönüyorsan <span class=ui>Şimdi</span>'ye dokun.","Kapanışta (Duraklatıldı / Tamamlandı) başlangıç bir önceki kaydın saatidir, bitiş girdiğin andır."],
   n:"Hafta sonu da aynı: süre senin QR / kayıt saatlerinden alınır.",b:["geri-baslangic","saatler","devam-ediyor","fm-haftasonu"]},
  {id:"durus-diger",k:"Duraklatma",s:["Neden listede yok","diğer seçeneği"],a:["diger","x99","listede yok","uygun yok","aciklama"],
   y:"Uygun neden yoksa <b>X99 · Diğer</b> seç ve kısa bir açıklama yaz; açıklama zorunludur.",b:["durus-neden"]},
@@ -4415,6 +4440,7 @@ const SOZLUK = [
  ["Süren iş","suren is",["süren iş","tezgah çalışmaya devam","makine çalışmaya devam","gözetimsiz","ışıksız","gece çalışıyor","tezgah çalışıyor","seri iş devam"]],
  ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
  ["QR saati","qr saati",["giriş saati","başlangıç saati","geliş saati","işe geliş","saat değişmiyor","QR saati"]],
+ ["Başlangıç önerisi","baslangic saati",["başlangıç saati nereden","önceki saat geliyor","önceki saat","önceki saati","önceki kaydın saati","başlangıç önceki","saat önceki kayıttan","başlangıç neden","önerilen saat"]],
  ["Geriye dönük başlangıç","geriye donuk",["geriye dönük","geri tarihli","geç girdim","sonradan başladı","önce başladım","başlangıcı düzelt","başlama saatini değiştir","geç okuttum","qr geç","geç okuttum qr"]],
  ["Tezgah QR","tezgah durusu",["tezgah qr","tezgah karekodu","tezgahın qr","tezgah duruşu","iş yok","tezgah boş","servis geldi","tezgah arızalı","makine arızalı iş emri yok","bakım girişi"]],
  ["Geriye dönük bitiş","geriye donuk durdur",["geriye dönük durdurma","geri tarihli durdurma","geç durdurdum","duraklatmayı unuttum","durdurmayı unuttum","daha önce bıraktım","bitişi düzelt","bitiş saatini değiştir","çıkış saatini düzelt","duraklatmayı geç","durdurmayı geç","bitiş saatini","bitiş saati"]],
