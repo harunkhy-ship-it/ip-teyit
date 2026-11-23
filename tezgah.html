@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0D6E7F">
+<title>Tezgah Duruşu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#EDF1F4; --yuzey:#FFFFFF; --yuzey2:#F6F8FA;
+    --ink:#132029; --ink2:#4B5D6B; --silik:#7A8B98;
+    --cizgi:#D2DBE2; --cizgi2:#BCC8D2;
+    --vurgu:#0D6E7F; --vurgu-ink:#FFFFFF; --vurgu-soft:#E2F1F3;
+    --ok:#1C7C52; --ok-soft:#E1F2E9;
+    --uyari:#9A6208; --uyari-soft:#FBEFD9;
+    --hata:#B23A2B; --hata-soft:#FAE7E4;
+    --r:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#0C1318; --yuzey:#151F27; --yuzey2:#1B2831;
+      --ink:#E6EDF2; --ink2:#A9BAC6; --silik:#74899A;
+      --cizgi:#27343E; --cizgi2:#354653;
+      --vurgu:#2FB3BE; --vurgu-ink:#04232A; --vurgu-soft:#11323A;
+      --ok:#4BC98C; --ok-soft:#10301F;
+      --uyari:#E0A94B; --uyari-soft:#33260E;
+      --hata:#F0796A; --hata-soft:#38191A;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#0C1318; --yuzey:#151F27; --yuzey2:#1B2831;
+    --ink:#E6EDF2; --ink2:#A9BAC6; --silik:#74899A;
+    --cizgi:#27343E; --cizgi2:#354653;
+    --vurgu:#2FB3BE; --vurgu-ink:#04232A; --vurgu-soft:#11323A;
+    --ok:#4BC98C; --ok-soft:#10301F;
+    --uyari:#E0A94B; --uyari-soft:#33260E;
+    --hata:#F0796A; --hata-soft:#38191A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif; font-size:15px; line-height:1.45}
+  .sayfa{max-width:560px; margin:0 auto; padding-inline:16px; padding-block:0 40px}
+  .ust{background:var(--vurgu); color:var(--vurgu-ink); margin-inline:-16px; padding:14px 16px 16px;
+    padding-top:calc(14px + env(safe-area-inset-top, 0px))}
+  .ust small{display:block; font-size:12px; letter-spacing:.6px; text-transform:uppercase; opacity:.85}
+  .ust h1{font-family:Archivo, system-ui, sans-serif; font-size:26px; margin:2px 0 0; letter-spacing:.3px}
+  .ust a{color:inherit; font-size:13px; opacity:.9}
+  .kart{background:var(--yuzey); border:1px solid var(--cizgi); border-radius:var(--r); padding:14px; margin-top:14px}
+  h2{font-family:Archivo, system-ui, sans-serif; font-size:17px; margin:0 0 10px}
+  label.alan{display:block; margin:12px 0 0}
+  .etiket{display:block; font-size:12px; font-weight:600; letter-spacing:.4px; text-transform:uppercase; color:var(--ink2); margin-bottom:5px}
+  input, select, textarea{width:100%; font:inherit; padding:11px 10px; border-radius:8px; border:1px solid var(--cizgi2);
+    background:var(--yuzey); color:var(--ink)}
+  textarea{min-height:64px}
+  .ikili{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .hizli{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap}
+  .hizli button{font:inherit; font-size:13px; padding:6px 10px; border-radius:8px; border:1px solid var(--cizgi2);
+    background:var(--yuzey2); color:var(--ink); cursor:pointer}
+  .ana{display:block; width:100%; margin-top:16px; font:inherit; font-weight:600; font-size:16px; padding:14px;
+    border:0; border-radius:var(--r); background:var(--vurgu); color:var(--vurgu-ink); cursor:pointer}
+  .ana:disabled{opacity:.55}
+  .not{font-size:13px; color:var(--ink2); margin:6px 0 0}
+  .hata{background:var(--hata-soft); color:var(--hata); border:1px solid var(--hata); border-radius:8px; padding:9px 11px;
+    font-weight:600; margin-top:12px}
+  .basari{background:var(--ok-soft); color:var(--ok); border:1px solid var(--ok); border-radius:8px; padding:9px 11px;
+    font-weight:600; margin-top:12px}
+  .acik{background:var(--uyari-soft); border:1.5px solid var(--uyari); border-radius:var(--r); padding:12px 14px; margin-top:14px}
+  .acik b{color:var(--uyari)}
+  .kod{font-family:"IBM Plex Mono", ui-monospace, monospace; font-weight:600}
+  .gecmis{list-style:none; padding:0; margin:0}
+  .gecmis li{display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--cizgi); font-size:14px}
+  .gecmis li:first-child{border-top:0}
+  .gecmis span:last-child{color:var(--ink2); text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .onay{display:flex; gap:8px; align-items:center; margin-top:12px; font-size:15px}
+  .onay input{width:auto; transform:scale(1.25)}
+  .giris-durum{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:var(--ink2); margin-top:12px}
+  .giris-durum button{font:inherit; font-size:13px; padding:5px 10px; border-radius:8px; border:1px solid var(--cizgi2);
+    background:var(--yuzey); color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="sayfa">
+  <header class="ust">
+    <small>Tezgah duruşu · bakım · arıza · iş yok</small>
+    <h1 id="tz-ad">Tezgah</h1>
+    <a href="index.html">← İş emri ekranına dön</a>
+  </header>
+
+  <div class="hata" id="genel-hata" hidden></div>
+
+  <section class="kart" id="giris" hidden>
+    <h2>Giriş</h2>
+    <p class="not" style="margin-top:0">Sicil numaranızı ve Authenticator'daki 6 haneli kodu yazın.</p>
+    <div class="ikili">
+      <label class="alan"><span class="etiket">Sicil no</span><input id="g-sicil" inputmode="numeric" autocomplete="off"></label>
+      <label class="alan"><span class="etiket">Kod</span><input id="g-kod" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></label>
+    </div>
+    <div class="hata" id="g-hata" hidden></div>
+    <button type="button" class="ana" id="g-giris">Giriş yap</button>
+  </section>
+
+  <div class="giris-durum" id="giris-durum" hidden><span id="giris-yazi"></span><button type="button" id="g-cikis">Çıkış</button></div>
+
+  <div id="icerik" hidden>
+    <div class="acik" id="acik" hidden></div>
+
+    <section class="kart" id="form">
+      <h2 id="form-baslik">Duruş başlat</h2>
+      <div id="baslat-alan">
+        <label class="alan"><span class="etiket">Duruş nedeni</span>
+          <select id="kod"></select></label>
+        <label class="alan"><span class="etiket">Başlangıç (tezgahın durduğu an)</span>
+          <div class="ikili"><input type="date" id="bas-tarih"><input type="time" id="bas-saat"></div></label>
+        <div class="hizli" data-hedef="bas"><button type="button" data-s="simdi">Şimdi</button><button type="button" data-s="08:30">08:30</button><button type="button" data-s="13:00">13:00</button></div>
+        <label class="onay"><input type="checkbox" id="bitti-var"> Duruş bitti — bitiş saatini de gireceğim</label>
+      </div>
+      <div id="bit-alan" hidden>
+        <label class="alan"><span class="etiket" id="bit-etiket">Bitiş (tezgahın yeniden çalışabildiği an)</span>
+          <div class="ikili"><input type="date" id="bit-tarih"><input type="time" id="bit-saat"></div></label>
+        <div class="hizli" data-hedef="bit"><button type="button" data-s="simdi">Şimdi</button><button type="button" data-s="12:45">12:45</button><button type="button" data-s="17:30">17:30</button></div>
+      </div>
+      <label class="alan"><span class="etiket" id="aciklama-etiket">Açıklama (isteğe bağlı)</span>
+        <textarea id="aciklama" maxlength="200" placeholder="ör. servis firması çağrıldı, iş mili rulmanı"></textarea></label>
+      <p class="not" id="sure-yazi"></p>
+      <div class="hata" id="form-hata" hidden></div>
+      <div class="basari" id="form-ok" hidden></div>
+      <button type="button" class="ana" id="gonder">Kaydet ve Gönder</button>
+    </section>
+
+    <section class="kart">
+      <h2>Bu tezgahın son duruşları</h2>
+      <ul class="gecmis" id="gecmis"></ul>
+      <p class="not" id="gecmis-bos" hidden>Kayıt yok.</p>
+    </section>
+    <p class="not">Bu sayfa yalnız tezgah duruşu içindir. İş emri kayıtları (Başladı, Duraklatıldı, Tamamlandı) İş Planı'ndaki QR ile girilir.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var DURUM_SERVISI = "https://script.google.com/macros/s/AKfycbx8xpvKZgLSyM5ikT7CoRVA8oa1hiSOc5EY5ZBbePm7fl_RH2tFW2AGmgckzqjdvWo/exec";
+  var KODLAR = [
+    ["Tezgah arızası / servis", [["A01", "İş mili arızası"], ["A02", "Eksen / servo / vidalı mil arızası"],
+      ["A03", "Takım magazini / ATC arızası"], ["A04", "Hidrolik / pnömatik arıza"],
+      ["A05", "Elektrik / elektronik / kumanda alarmı"], ["A06", "Soğutma sıvısı / talaş konveyörü arızası"],
+      ["A07", "Çarpışma (crash)"]]],
+    ["Planlı bakım", [["B01", "Planlı periyodik bakım"], ["B02", "Kalibrasyon / hassasiyet ayarı"],
+      ["B03", "Temizlik / talaş boşaltma"]]],
+    ["Enerji / altyapı", [["E01", "Elektrik kesintisi"], ["E02", "Basınçlı hava yok"],
+      ["E03", "Vinç / taşıma ekipmanı bekleniyor"]]],
+    ["İş yok", [["I01", "İş yok — tezgaha planlı iş yok"]]],
+    ["Diğer", [["X99", "Diğer (açıklama yazın)"]]]
+  ];
+  var KOD_AD = {};
+  KODLAR.forEach(function (g) { g[1].forEach(function (k) { KOD_AD[k[0]] = k[1]; }); });
+  function $(s) { return document.querySelector(s); }
+
+  // Tezgah adı adresin # kısmından: tezgah.html#t=DMU%2060
+  function tezgahAdi() {
+    var h = String(location.hash || "").replace(/^#/, ""), m = /(?:^|&)t=([^&]*)/.exec(h);
+    try { return decodeURIComponent(m ? m[1] : h).trim(); } catch (e) { return ""; }
+  }
+  var TEZGAH = tezgahAdi(), durumV = null;
+
+  /* ---- giriş: iş emri sayfasıyla ortak (aynı telefonda bir kez) ---- */
+  function cerezOku(ad) {
+    try { var m = new RegExp("(?:^|; )" + ad + "=([^;]*)").exec(document.cookie); return m ? decodeURIComponent(m[1]) : ""; } catch (e) { return ""; }
+  }
+  function cerezYaz(ad, deger, sn) {
+    try { document.cookie = ad + "=" + encodeURIComponent(deger) + "; max-age=" + Math.max(0, Math.floor(sn)) + "; path=/; SameSite=Lax" +
+                            (location.protocol === "https:" ? "; Secure" : ""); } catch (e) {}
+  }
+  function girisOku() {
+    try {
+      var g = JSON.parse(localStorage.getItem("muif-giris:*") || cerezOku("muif_giris") || "null");
+      return g && g.jeton && (g.bitis > Date.now() || (g.mesai_son || 0) > Date.now()) ? g : null;
+    } catch (e) { return null; }
+  }
+  function girisYaz(g) {
+    try { localStorage.setItem("muif-giris:*", JSON.stringify(g)); localStorage.setItem("muif-sicil", g.sicil); } catch (e) {}
+    cerezYaz("muif_giris", JSON.stringify(g), (Math.max(g.bitis || 0, g.mesai_son || 0) - Date.now()) / 1000);
+  }
+  function girisSil() {
+    try { localStorage.removeItem("muif-giris:*"); } catch (e) {}
+    cerezYaz("muif_giris", "", 0);
+  }
+  function post(govde) {
+    var istek = fetch(DURUM_SERVISI, { method: "POST", body: JSON.stringify(govde) }).then(function (r) { return r.json(); });
+    var zaman = new Promise(function (_, red) { setTimeout(function () { red(new Error("zaman")); }, 25000); });
+    return Promise.race([istek, zaman]);
+  }
+
+  /* ---- zaman yardımcıları ---- */
+  function iki(x) { return (x < 10 ? "0" : "") + x; }
+  function gunYazi(ms) { var d = new Date(ms); return d.getFullYear() + "-" + iki(d.getMonth() + 1) + "-" + iki(d.getDate()); }
+  function saatYazi(ms) { var d = new Date(ms); return iki(d.getHours()) + ":" + iki(d.getMinutes()); }
+  function tarihSaat(ms) { var d = new Date(ms); return iki(d.getDate()) + "." + iki(d.getMonth() + 1) + " " + saatYazi(ms); }
+  function kutu(t, s) {
+    var a = $(t).value, b = $(s).value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a) || !/^\d{2}:\d{2}$/.test(b)) return null;
+    return new Date(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10), +b.slice(0, 2), +b.slice(3, 5)).getTime();
+  }
+  function kutuYaz(t, s, ms) { $(t).value = gunYazi(ms); $(s).value = saatYazi(ms); }
+  function sureYazi(dk) { return dk >= 60 ? Math.floor(dk / 60) + " sa " + (dk % 60) + " dk" : dk + " dk"; }
+
+  function kodlariDoldur() {
+    var sel = $("#kod"), o = document.createElement("option");
+    o.value = ""; o.textContent = "— Neden seçin —"; sel.appendChild(o);
+    KODLAR.forEach(function (g) {
+      var og = document.createElement("optgroup"); og.label = g[0];
+      g[1].forEach(function (k) { var x = document.createElement("option"); x.value = k[0]; x.textContent = k[0] + " · " + k[1]; og.appendChild(x); });
+      sel.appendChild(og);
+    });
+  }
+
+  function hataGoster(id, m) { var h = $(id); h.textContent = m || ""; h.hidden = !m; }
+
+  function gorunum() {
+    var g = girisOku();
+    $("#tz-ad").textContent = TEZGAH || "Tezgah seçilmedi";
+    if (!TEZGAH) { hataGoster("#genel-hata", "Adreste tezgah adı yok. Tezgahın üstündeki QR'ı yeniden okutun."); return; }
+    $("#giris").hidden = !!g;
+    $("#giris-durum").hidden = !g;
+    $("#icerik").hidden = !g;
+    if (g) { $("#giris-yazi").textContent = "Giriş: " + (g.ad ? g.ad + " · " : "") + g.sicil; yukle(); }
+    else { try { $("#g-sicil").value = localStorage.getItem("muif-sicil") || ""; } catch (e) {} }
+  }
+
+  function yukle() {
+    var g = girisOku();
+    if (!g) return gorunum();
+    $("#gonder").disabled = true;
+    hataGoster("#genel-hata", "");
+    post({ islem: "tezgahDurum", jeton: g.jeton, tezgah: TEZGAH }).then(function (r) {
+      if (r && r.hata === "giris_gerekli") { girisSil(); return gorunum(); }
+      if (!r || !r.ok) {
+        hataGoster("#genel-hata", (r && r.mesaj) || "Tezgah durumu okunamadı.");
+        if (r && /Bilinmeyen işlem/.test(r.mesaj || "")) hataGoster("#genel-hata", "Sunucu henüz güncel değil (tezgah duruşu için yeni sürüm yayınlanmalı). Planlamaya bildirin.");
+        return;
+      }
+      durumV = r; TEZGAH = r.tezgah; $("#tz-ad").textContent = r.tezgah;
+      ciz();
+    }).catch(function () { hataGoster("#genel-hata", "Bağlantı yok. İnternet gelince sayfayı yenileyin."); });
+  }
+
+  function ciz() {
+    var r = durumV, a = r.acik, simdi = Date.now();
+    $("#acik").hidden = !a;
+    if (a) {
+      $("#acik").innerHTML = "";
+      var b = document.createElement("div");
+      b.innerHTML = "<b>Tezgah duruşta</b>";
+      var d = document.createElement("div");
+      d.textContent = a.kod + " · " + (KOD_AD[a.kod] || "") + " — " + tarihSaat(a.bas) + "'den beri (" + sureYazi(Math.max(0, Math.round((simdi - a.bas) / 60000))) + ")" +
+                      (a.aciklama ? " · " + a.aciklama : "");
+      $("#acik").appendChild(b); $("#acik").appendChild(d);
+    }
+    $("#form-baslik").textContent = a ? "Duruşu bitir" : "Duruş başlat";
+    $("#baslat-alan").hidden = !!a;
+    $("#bit-alan").hidden = !a && !$("#bitti-var").checked;
+    $("#bit-etiket").textContent = "Bitiş (tezgahın yeniden çalışabildiği an)";
+    if (!$("#bas-saat").value) kutuYaz("#bas-tarih", "#bas-saat", simdi);
+    if (!$("#bit-saat").value || a) kutuYaz("#bit-tarih", "#bit-saat", simdi);
+    $("#gonder").textContent = a ? "Duruşu bitir" : "Kaydet ve Gönder";
+    $("#gonder").disabled = false;
+    aciklamaEtiketi(); sureGoster();
+    var l = $("#gecmis"); l.textContent = "";
+    (r.son || []).forEach(function (x) {
+      var li = document.createElement("li"), s1 = document.createElement("span"), s2 = document.createElement("span");
+      s1.innerHTML = '<span class="kod"></span> '; s1.firstChild.textContent = x.kod;
+      s1.appendChild(document.createTextNode(KOD_AD[x.kod] || ""));
+      s2.textContent = tarihSaat(x.bas) + " → " + (x.bit != null ? saatYazi(x.bit) + " (" + sureYazi(Math.round((x.bit - x.bas) / 60000)) + ")" : "sürüyor");
+      li.appendChild(s1); li.appendChild(s2); l.appendChild(li);
+    });
+    $("#gecmis-bos").hidden = !!(r.son || []).length;
+  }
+
+  function aciklamaEtiketi() {
+    var x = !durumV || !durumV.acik ? $("#kod").value === "X99" : false;
+    $("#aciklama-etiket").textContent = x ? "Açıklama (zorunlu)" : "Açıklama (isteğe bağlı)";
+  }
+  function sureGoster() {
+    var a = durumV && durumV.acik, bas = a ? a.bas : kutu("#bas-tarih", "#bas-saat");
+    var bitGerek = !!a || $("#bitti-var").checked, bit = bitGerek ? kutu("#bit-tarih", "#bit-saat") : null;
+    $("#sure-yazi").textContent = bas != null && bit != null
+      ? (bit < bas ? "Bitiş, başlangıçtan önce görünüyor — saatleri kontrol edin."
+                   : "Duruş süresi: " + tarihSaat(bas) + " → " + tarihSaat(bit) + " = " + sureYazi(Math.round((bit - bas) / 60000)))
+      : bas != null ? "Başlangıç " + tarihSaat(bas) + ". Bitiş, tezgah yeniden çalışınca aynı QR'dan girilir." : "";
+  }
+
+  function denetle() {
+    var a = durumV && durumV.acik, simdi = Date.now(), ileri = simdi + 5 * 60000;
+    var geri = ((durumV && durumV.geri_sa) || 72) * 3600000;
+    var bas = a ? a.bas : kutu("#bas-tarih", "#bas-saat");
+    var bitGerek = !!a || $("#bitti-var").checked, bit = bitGerek ? kutu("#bit-tarih", "#bit-saat") : null;
+    if (!a) {
+      if (!$("#kod").value) return "Duruş nedenini seçin.";
+      if ($("#kod").value === "X99" && $("#aciklama").value.trim().length < 3) return "«Diğer» seçildiyse kısa açıklama yazın.";
+      if (bas == null) return "Başlangıç tarih ve saatini girin.";
+      if (bas > ileri) return "Başlangıç şu andan ileride olamaz.";
+      if (simdi - bas > geri) return "Başlangıç en çok " + Math.round(geri / 86400000) + " gün geriye girilebilir.";
+    }
+    if (bitGerek) {
+      if (bit == null) return "Bitiş tarih ve saatini girin.";
+      if (bit > ileri) return "Bitiş şu andan ileride olamaz.";
+      if (bit < bas) return "Bitiş, başlangıçtan (" + tarihSaat(bas) + ") önce olamaz.";
+    }
+    return "";
+  }
+
+  function kidUret() { return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5); }
+
+  $("#gonder").addEventListener("click", function () {
+    var g = girisOku(), b = this;
+    hataGoster("#form-hata", ""); $("#form-ok").hidden = true;
+    if (!g) return gorunum();
+    var h = denetle();
+    if (h) return hataGoster("#form-hata", h);
+    var a = durumV && durumV.acik, bitGerek = !!a || $("#bitti-var").checked;
+    var govde = { islem: "tezgahKayit", jeton: g.jeton, tezgah: TEZGAH, kid: kidUret(), aciklama: $("#aciklama").value.trim(),
+                  tur: a ? "BITIR" : "BASLAT", ref: a ? a.kid : "", kod: a ? a.kod : $("#kod").value,
+                  bas: a ? a.bas : kutu("#bas-tarih", "#bas-saat"), bit: bitGerek ? kutu("#bit-tarih", "#bit-saat") : null };
+    b.disabled = true; b.textContent = "Gönderiliyor…";
+    post(govde).then(function (r) {
+      if (r && r.hata === "giris_gerekli") { girisSil(); gorunum(); return; }
+      if (!r || !r.ok) { b.disabled = false; ciz(); hataGoster("#form-hata", (r && r.mesaj) || "Kaydedilemedi."); return; }
+      var m = a ? "✓ Duruş kapatıldı." : bitGerek ? "✓ Duruş kaydedildi (başlangıç ve bitiş)." : "✓ Duruş başladı. Tezgah yeniden çalışınca aynı QR'dan «Duruşu bitir»i girin.";
+      $("#aciklama").value = ""; $("#kod").value = ""; $("#bitti-var").checked = false;
+      $("#bas-saat").value = ""; $("#bit-saat").value = "";
+      $("#form-ok").textContent = m; $("#form-ok").hidden = false;
+      yukle();
+    }).catch(function () {
+      b.disabled = false; b.textContent = a ? "Duruşu bitir" : "Kaydet ve Gönder";
+      hataGoster("#form-hata", "Bağlantı yok; kayıt gönderilemedi. İnternet gelince tekrar deneyin.");
+    });
+  });
+
+  $("#g-giris").addEventListener("click", function () {
+    var b = this, sicil = $("#g-sicil").value.replace(/\D/g, ""), kod = $("#g-kod").value.replace(/\D/g, "");
+    hataGoster("#g-hata", "");
+    if (!sicil || kod.length !== 6) return hataGoster("#g-hata", "Sicil numaranızı ve 6 haneli kodu yazın.");
+    b.disabled = true; b.textContent = "Doğrulanıyor…";
+    post({ islem: "giris", sicil: sicil, kod: kod, ie: "TEZGAH" }).then(function (r) {
+      b.disabled = false; b.textContent = "Giriş yap";
+      if (!r || !r.ok) return hataGoster("#g-hata", (r && r.mesaj) || "Giriş yapılamadı.");
+      girisYaz({ jeton: r.jeton, sicil: r.sicil, ad: r.ad, ie: r.ie, bitis: r.bitis, genel: !!r.genel, mesai_son: r.mesai_son || 0,
+                 rol: r.rol || "Operatör", altyapi: r.altyapi || [], tezgahlar: r.tezgahlar || [] });
+      $("#g-kod").value = "";
+      gorunum();
+    }).catch(function () { b.disabled = false; b.textContent = "Giriş yap"; hataGoster("#g-hata", "Bağlantı yok; tekrar deneyin."); });
+  });
+  $("#g-cikis").addEventListener("click", function () { girisSil(); gorunum(); });
+
+  ["#bas-tarih", "#bas-saat", "#bit-tarih", "#bit-saat"].forEach(function (id) {
+    $(id).addEventListener("input", sureGoster); $(id).addEventListener("change", sureGoster);
+  });
+  $("#kod").addEventListener("change", aciklamaEtiketi);
+  $("#bitti-var").addEventListener("change", function () { $("#bit-alan").hidden = !this.checked; if (this.checked) kutuYaz("#bit-tarih", "#bit-saat", Date.now()); sureGoster(); });
+  Array.prototype.forEach.call(document.querySelectorAll(".hizli"), function (k) {
+    k.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-s]"); if (!b) return;
+      var h = k.dataset.hedef, simdi = Date.now();
+      if (b.dataset.s === "simdi") kutuYaz("#" + h + "-tarih", "#" + h + "-saat", simdi);
+      else { $("#" + h + "-saat").value = b.dataset.s; if (!$("#" + h + "-tarih").value) $("#" + h + "-tarih").value = gunYazi(simdi); }
+      sureGoster();
+    });
+  });
+  window.addEventListener("hashchange", function () { TEZGAH = tezgahAdi(); durumV = null; gorunum(); });
+
+  kodlariDoldur();
+  gorunum();
+})();
+</script>
+</body>
+</html>

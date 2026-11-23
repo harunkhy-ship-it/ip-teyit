@@ -511,6 +511,15 @@
     <section id="bolum-liste">
       <h2>Rota Kartı — İşlem Adımları</h2>
       <button type="button" class="sira-ac" id="sira-ac" hidden>↕ Sırayı düzenle (tut-çek)</button>
+      <button type="button" class="sira-ac" id="ekle-ac" hidden>＋ Rotaya adım ekle</button>
+      <div class="sira-duzen" id="ekle-sec" hidden>
+        <p class="not" style="margin:0 0 8px">Yeni adım hangi adımdan <b>sonra</b> gelecek?</p>
+        <select id="ekle-sonra" style="width:100%; font:inherit; padding:10px; border-radius:8px; border:1px solid var(--cizgi2); background:var(--yuzey); color:var(--ink)"></select>
+        <div class="sd-dugmeler" style="margin-top:8px">
+          <button type="button" id="ekle-devam">Devam: adı ve gerekçeyi yaz</button>
+          <button type="button" id="ekle-vazgec">Vazgeç</button>
+        </div>
+      </div>
       <div class="sira-duzen" id="sira-duzen" hidden>
         <p class="not" style="margin:0 0 8px">Adımı ≡ tutamağından tutup sürükleyin. 🔒 kaydı olan adımlar sabittir;
           proses bloğu ve ara ölçüm (4.1) birlikte taşınır.</p>
@@ -1710,6 +1719,8 @@
       var cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true });
       var bd = ("BarcodeDetector" in window) ? new window.BarcodeDetector({ formats: ["qr_code"] }) : null, mesgul = false;
       var bulundu = function (metin) {
+        var tzm = /tezgah\.html#(.+)$/.exec(String(metin || ""));
+        if (tzm) { tarayiciKapat(); location.href = "tezgah.html#" + tzm[1]; return true; }
         var ham = qrHam(metin);
         if (!ham || !yukuCoz("MUIF1" + ham)) { y.textContent = "Bu QR bir İP saha QR'ı değil. İş Planı'ndaki QR'ı okutun."; return false; }
         tarayiciKapat(); yuktenAc(ham); return true;
@@ -1816,6 +1827,28 @@
     $("#yk-ekle").textContent = alt ? "＋ Adım ekle (ana adımı seçin)" : "＋ " + gNo(no) + "'den sonra adım ekle";
     $("#yk-ekle-kaldir").hidden = !eklenenMi(no);
   }
+  /* Liste ekranından adım ekleme (yönetici): adımı seçtirir, o adımın yönetici kutusundaki «adım ekle»yi açar. */
+  $("#ekle-ac").addEventListener("click", function () {
+    var sel = $("#ekle-sonra"), k = $("#ekle-sec");
+    if (!k.hidden) { k.hidden = true; return; }
+    sel.textContent = "";
+    is.a.forEach(function (x) {
+      if (altAdimMi(x[0])) return;
+      var o = document.createElement("option"); o.value = x[0]; o.textContent = gNo(x[0]) + " · " + x[1]; sel.appendChild(o);
+    });
+    if (sel.options.length) sel.selectedIndex = sel.options.length - 1;
+    k.hidden = false;
+  });
+  $("#ekle-vazgec").addEventListener("click", function () { $("#ekle-sec").hidden = true; });
+  $("#ekle-devam").addEventListener("click", function () {
+    var no = $("#ekle-sonra").value, x = is.a.filter(function (y) { return y[0] === no; })[0];
+    if (!x) return;
+    $("#ekle-sec").hidden = true;
+    adimSec(x);
+    if ($("#yonetici-kutu").hidden) return;
+    $("#yk-ekle").click();
+    $("#yonetici-kutu").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   $("#yk-ekle").addEventListener("click", function () {
     if (!secili || altAdimMi(secili[0])) return;
     var sel = $("#yk-ekle-alt"), liste = [];
@@ -1881,6 +1914,8 @@
   function sdAcKapa() {
     var g = girisOku();
     $("#sira-ac").hidden = !yoneticiMi(g) || !is;
+    $("#ekle-ac").hidden = !yoneticiMi(g) || !is;
+    if ($("#ekle-ac").hidden) $("#ekle-sec").hidden = true;
   }
   function sdCiz() {
     var k = adimDurumlari(), kutu = $("#sd-liste");
@@ -4208,10 +4243,14 @@ const KB = [
   n:"Hafta sonu da aynı: süre senin QR / kayıt saatlerinden alınır.",b:["geri-baslangic","saatler","devam-ediyor","fm-haftasonu"]},
  {id:"durus-diger",k:"Duraklatma",s:["Neden listede yok","diğer seçeneği"],a:["diger","x99","listede yok","uygun yok","aciklama"],
   y:"Uygun neden yoksa <b>X99 · Diğer</b> seç ve kısa bir açıklama yaz; açıklama zorunludur.",b:["durus-neden"]},
+ {id:"tezgah-qr",k:"Tezgah",s:["Tezgah arızalı, iş emri yok, nasıl girerim","tezgah QR'ı ne işe yarar","iş yok tezgah boş"],a:["tezgah qr","tezgah karekod","tezgah durusu","tezgah bos","is yok","is olmadi","servis geldi","bakim girisi","ariza girisi","tezgah calismiyor"],
+  y:"Tezgahın kendisi durduğunda (arıza / servis, planlı bakım, enerji kesintisi, iş yok) tezgahın üstündeki <b>tezgah QR</b>'ını okut. Bu kayıt iş emrine bağlı değildir.",
+  d:["Tezgahın üstündeki QR'ı telefonla ya da uygulamadaki <span class=ui>📷 QR</span> ile okut.","Giriş yoksa sicil ve Authenticator kodunu yaz (iş emri girişiyle aynı).","<span class=ui>Duruş nedeni</span>ni seç: A arıza / servis · B bakım · E enerji · <b>I01 İş yok</b> · X99 diğer.","Başlangıç tezgahın durduğu andır; geç giriyorsan gerçek saati yaz (en çok 3 gün geriye).","Tezgah yeniden çalışınca aynı QR'ı okut ve <span class=ui>Duruşu bitir</span>. Bitmiş duruşu tek seferde girmek için «Duruş bitti» kutusunu işaretle."],
+  n:"Tezgahta açık duruş varken yenisi açılmaz; önce bitir. İş emrinde çalışırken duraklarsan iş emri QR'ından «Duraklatıldı» gir.",b:["durus-ariza","durus-bakim","durus-neden"]},
  {id:"durus-ariza",k:"Duraklatma",s:["Tezgah arıza yaptı","makine bozuldu","arıza kodu"],a:["ariza","bozuldu","makine bozuk","alarm","is mili","eksen","carpisma","crash"],
   y:"Tezgah arızasında <span class=ui>Duraklatıldı</span> seçip <b>A</b> ile başlayan uygun arıza kodunu seç.",
   d:["A01 iş mili · A02 eksen / servo · A03 takım magazini","A04 hidrolik / pnömatik · A05 elektrik / kumanda alarmı","A06 soğutma / talaş konveyörü · A07 çarpışma"],
-  n:"A kodları tezgahın arıza istatistiğine (arıza sıklığı, onarım süresi) girer; doğru seçmek önemli.",b:["durus-neden"]},
+  n:"A kodları tezgahın arıza istatistiğine (arıza sıklığı, onarım süresi) girer; doğru seçmek önemli. Üzerinde iş emri yokken tezgah durduysa tezgahın QR'ını kullan.",b:["durus-neden","tezgah-qr"]},
  {id:"malzeme-kaynak",k:"Malzeme",s:["Ham malzeme nereden verildi sorusu","lot numarası nereye yazılır","depo envanteri"],a:["malzeme","ham malzeme","lot","seri","sertifika","depo","envanter","genel alan","nereden"],
   y:"Malzeme adımlarından biri (1–3: Malzeme Temini, Kesim, Etiketleme) <b>Tamamlandı</b> girilirken ya da «Malzeme hazır» onayında malzemenin nereden verildiği sorulur.",
   d:["<b>Depo envanterinden</b>: lot / seri no zorunlu, sertifika no varsa yazılır.","<b>Genel bekleyen alandan</b>: lot ve sertifika takibi olmaz, kayıtta «takipsiz» işaretlenir."],
@@ -4377,6 +4416,7 @@ const SOZLUK = [
  ["Kapanış","kapanis",["kapanış","akşam kaydı","çıkış kaydı","kapatmayı unuttum","kapanış girilmemiş","kapanış eksik","gün sonu kaydı"]],
  ["QR saati","qr saati",["giriş saati","başlangıç saati","geliş saati","işe geliş","saat değişmiyor","QR saati"]],
  ["Geriye dönük başlangıç","geriye donuk",["geriye dönük","geri tarihli","geç girdim","sonradan başladı","önce başladım","başlangıcı düzelt","başlama saatini değiştir","geç okuttum","qr geç","geç okuttum qr"]],
+ ["Tezgah QR","tezgah durusu",["tezgah qr","tezgah karekodu","tezgahın qr","tezgah duruşu","iş yok","tezgah boş","servis geldi","tezgah arızalı","makine arızalı iş emri yok","bakım girişi"]],
  ["Geriye dönük bitiş","geriye donuk durdur",["geriye dönük durdurma","geri tarihli durdurma","geç durdurdum","duraklatmayı unuttum","durdurmayı unuttum","daha önce bıraktım","bitişi düzelt","bitiş saatini değiştir","çıkış saatini düzelt","duraklatmayı geç","durdurmayı geç","bitiş saatini","bitiş saati"]],
  ["İlk parça süresi","ilk parca suresi",["ilk parça süresi","ilk parçanın süresi","ilk parça ne kadar sürdü","birinci parça"]],
  ["Parça başına süre","parca basina",["parça başı","birim süre","çevrim süresi","parça süresi","adet başına","tane başına"]],
