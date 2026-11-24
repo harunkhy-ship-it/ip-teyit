@@ -80,6 +80,19 @@
   .giris-durum{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px; color:var(--ink2); margin-top:12px}
   .giris-durum button{font:inherit; font-size:13px; padding:5px 10px; border-radius:8px; border:1px solid var(--cizgi2);
     background:var(--yuzey); color:var(--ink)}
+
+  /* ===== HAREKET KATMANI (hareket-katmani) — yalnız görünüm; ana sayfadakinin kısa sürümü ===== */
+  .hk-bildirim{position:fixed; z-index:60; left:50%; top:calc(12px + env(safe-area-inset-top, 0px));
+    transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100% - 32px);
+    padding:10px 16px 10px 10px; border-radius:999px; background:var(--ink); color:var(--bg);
+    font-weight:600; font-size:14.5px; box-shadow:0 10px 30px rgba(0,0,0,.28); pointer-events:none}
+  .hk-bildirim i{flex:0 0 26px; height:26px; border-radius:50%; display:grid; place-items:center; font-style:normal;
+    background:var(--ok); color:#fff; font-size:14px}
+  .hk-bildirim.hata i{background:var(--hata)}
+  .hk-bildirim span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  button{transition:transform .5s cubic-bezier(.2,.9,.3,1.02)}
+  button:active:not([disabled]){transform:scale(.97); transition-duration:.08s}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
 </style>
 </head>
 <body>
@@ -376,5 +389,80 @@
   gorunum();
 })();
 </script>
+
+<script>
+/* HAREKET KATMANI (kısa): yay, sıralı geliş, kayıtta bildirim + ses. Kayıt mantığına dokunmaz. */
+(function () {
+  "use strict";
+  var AZ = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  var YAY = "linear(0, 0.0284, 0.0924, 0.1779, 0.2741, 0.3732, 0.4749, 0.5648, 0.6461, 0.718, 0.78, 0.8351, 0.8781, 0.9131, 0.941, 0.9627, 0.9801, 0.9921, 1.0007, 1.0065, 1.0102, 1.0123, 1.0131, 1.013, 1.0123, 1.0113, 1.0101, 1.0088, 1.0075, 1.0062, 1.0051, 1.0041, 1.0032, 1.0025, 1.0018, 1.0013, 1)", ZIP = "linear(0, 0.0347, 0.1188, 0.2312, 0.3561, 0.4816, 0.5997, 0.7054, 0.792, 0.8674, 0.9271, 0.9725, 1.0052, 1.0272, 1.0405, 1.0469, 1.0486, 1.0468, 1.0426, 1.0371, 1.031, 1.0249, 1.0194, 1.0143, 1.0099, 1.0063, 1.0034, 1.0012, 0.9997, 0.9987, 0.998, 0.9977, 0.9976, 0.9977, 0.9979, 0.9982, 1)";
+  if (!(window.CSS && CSS.supports && CSS.supports("transition-timing-function", "linear(0, 1)"))) {
+    YAY = "cubic-bezier(.2,.9,.3,1.02)"; ZIP = "cubic-bezier(.25,1.35,.5,1)"; }
+  function $(q) { return document.querySelector(q); }
+  function oynat(el, k, d, e, g) {
+    if (AZ.matches || !el || !el.animate) return null;
+    try { return el.animate(k, { duration: d, easing: e, delay: g || 0, fill: "backwards" }); } catch (x) { return null; }
+  }
+  var GEL = [{ opacity: 0, transform: "translateY(14px) scale(.985)" }, { opacity: 1, transform: "none" }];
+  function sirali(l, b) { var n = 0; Array.prototype.forEach.call(l, function (el) { if (el.nodeType === 1 && !el.hidden) oynat(el, GEL, 650, YAY, (b || 0) + Math.min(n++, 10) * 70); }); }
+  var ctx = null;
+  function sesAcik() { try { return localStorage.getItem("muif-ses") !== "0"; } catch (e) { return true; } }
+  document.addEventListener("pointerdown", function () {
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); } catch (e) { ctx = null; }
+  }, { once: true, passive: true });
+  function ses(tur) {
+    if (sesAcik() && ctx) try {
+      var t = ctx.currentTime, l = tur === "ok" ? [[880, 0], [1318, .065]] : [[262, 0], [196, .1]];
+      l.forEach(function (n) { var o = ctx.createOscillator(), g = ctx.createGain(); o.type = tur === "ok" ? "sine" : "triangle"; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t + n[1]); g.gain.exponentialRampToValueAtTime(.11, t + n[1] + .012); g.gain.exponentialRampToValueAtTime(0.0001, t + n[1] + .17);
+        o.connect(g); g.connect(ctx.destination); o.start(t + n[1]); o.stop(t + n[1] + .2); });
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(tur === "ok" ? 12 : [20, 40, 20]); } catch (e) {}
+  }
+  var bil = null, bz = 0;
+  function bildir(m, tur) {
+    if (bil) bil.remove();
+    var d = document.createElement("div"); d.className = "hk-bildirim" + (tur === "ok" ? "" : " hata"); d.setAttribute("role", "status");
+    var i = document.createElement("i"); i.textContent = tur === "ok" ? "✓" : "!"; var sp = document.createElement("span"); sp.textContent = m;
+    d.appendChild(i); d.appendChild(sp); document.body.appendChild(d); bil = d;
+    var a = oynat(d, [{ transform: "translateX(calc(-50% + 70vw))", filter: "blur(10px)", opacity: 0 },
+                      { transform: "translateX(calc(-50% + 18vw))", filter: "blur(4px)", opacity: 1, offset: .3 },
+                      { transform: "translateX(-50%)", filter: "blur(0)", opacity: 1 }], 750, ZIP);
+    setTimeout(function () { ses(tur); }, a ? 230 : 0);
+    clearTimeout(bz);
+    bz = setTimeout(function () {
+      var c = oynat(d, [{ opacity: 1 }, { opacity: 0, transform: "translateX(-50%) translateY(-14px) scale(.96)" }], 260, "ease-in");
+      function sil() { if (bil === d) bil = null; d.remove(); } if (c) c.onfinish = sil; else sil();
+    }, tur === "ok" ? 2600 : 4200);
+  }
+  function izle(q, f) {
+    var el = $(q); if (!el) return; var once = el.hidden;
+    new MutationObserver(function () { var o = once; once = el.hidden; if (o && !el.hidden) f(el); })
+      .observe(el, { attributes: true, attributeFilter: ["hidden"] });
+  }
+  function basla() {
+    izle("#icerik", function (el) { sirali(el.children, 40); });
+    izle("#giris", function (el) { oynat(el, GEL, 650, YAY); });
+    ["#acik", "#bit-alan", "#baslat-alan", "#genel-hata"].forEach(function (q) {
+      izle(q, function (el) { oynat(el, [{ opacity: 0, transform: "translateY(10px) scale(.98)" }, { opacity: 1, transform: "none" }], 650, YAY); });
+    });
+    izle("#form-ok", function (el) {
+      bildir((el.textContent || "Kaydedildi").split(/[.—]/)[0].replace(/^✓\s*/, "").trim() || "Kaydedildi", "ok");
+      oynat(el, [{ transform: "scale(.96)", opacity: .4 }, { transform: "none", opacity: 1 }], 750, ZIP);
+    });
+    izle("#form-hata", function (el) {
+      bildir("Kayıt girilmedi — nedeni aşağıda", "hata");
+      oynat(el, [{ transform: "none" }, { transform: "translateX(-7px)" }, { transform: "translateX(6px)" },
+                 { transform: "translateX(-4px)" }, { transform: "none" }], 420, "ease-out");
+    });
+    var g = $("#gecmis"), son = "";
+    if (g) new MutationObserver(function () { var y = g.textContent; if (y !== son && g.children.length) { son = y; sirali(g.children, 80); } })
+      .observe(g, { childList: true });
+    sirali(document.querySelectorAll("header > *, body > header > *"));
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", basla); else basla();
+})();
+</script>
+
 </body>
 </html>

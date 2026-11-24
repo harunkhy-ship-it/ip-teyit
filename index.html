@@ -457,6 +457,58 @@
   #as-yaz{display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--cizgi)}
   #as-yaz input{flex:1; min-width:0; height:44px; border-radius:12px; border:1px solid var(--cizgi); background:var(--yuzey2); color:var(--ink); padding:0 12px; font:inherit; font-size:16px}
   #as-yaz button{height:44px; border-radius:12px; border:0; background:var(--vurgu); color:var(--vurgu-ink); font:inherit; font-weight:600; padding:0 16px; cursor:pointer}
+
+  /* ================= HAREKET KATMANI (hareket-katmani) =================
+     Yalnız görünüm. Yay: k 170 / c 21 (yumuşak oturma) · zıplak: k 170 / c 18 (%5 taşma).
+     Sistem «hareketi azalt» açıksa tüm hareketler kapanır. */
+  :root{ --yay:cubic-bezier(.2,.9,.3,1.02); --zip:cubic-bezier(.25,1.35,.5,1); --r:12px }
+  @supports (transition-timing-function: linear(0, 1)){
+    :root{ --yay:linear(0, 0.0284, 0.0924, 0.1779, 0.2741, 0.3732, 0.4749, 0.5648, 0.6461, 0.718, 0.78, 0.8351, 0.8781, 0.9131, 0.941, 0.9627, 0.9801, 0.9921, 1.0007, 1.0065, 1.0102, 1.0123, 1.0131, 1.013, 1.0123, 1.0113, 1.0101, 1.0088, 1.0075, 1.0062, 1.0051, 1.0041, 1.0032, 1.0025, 1.0018, 1.0013, 1);
+           --zip:linear(0, 0.0347, 0.1188, 0.2312, 0.3561, 0.4816, 0.5997, 0.7054, 0.792, 0.8674, 0.9271, 0.9725, 1.0052, 1.0272, 1.0405, 1.0469, 1.0486, 1.0468, 1.0426, 1.0371, 1.031, 1.0249, 1.0194, 1.0143, 1.0099, 1.0063, 1.0034, 1.0012, 0.9997, 0.9987, 0.998, 0.9977, 0.9976, 0.9977, 0.9979, 0.9982, 1) }
+  }
+  /* cam üst ve alt çubuk */
+  @supports ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))){
+    .kunye, .eylem{
+      background:color-mix(in srgb, var(--yuzey) 80%, transparent);
+      -webkit-backdrop-filter:saturate(1.6) blur(16px); backdrop-filter:saturate(1.6) blur(16px);
+    }
+  }
+  .kart, .adim{box-shadow:0 1px 2px rgba(19,32,41,.05)}
+  .cubuk span{transition:width .7s var(--yay); background:linear-gradient(90deg, var(--vurgu), color-mix(in srgb, var(--vurgu) 65%, var(--ok)))}
+  /* dokunuş: basınca hafif içe, bırakınca yayla geri */
+  .adim, .btn, .secim button, .hizli button, .qr-btn, .qr-buyuk, .giris-btn, .devral-btn, .hizli-tamam,
+  .islerim .is-satir button, .kural-uyari button, .malzeme-kutu button, .as-dugme, .ayar-btn{
+    transition:transform .55s var(--yay), box-shadow .2s, background-color .2s, border-color .2s, color .2s;
+  }
+  .adim:active, .secim button:active, .hizli button:active, .qr-btn:active, .qr-buyuk:active, .giris-btn:active,
+  .devral-btn:active, .hizli-tamam:active, .islerim .is-satir button:active, .kural-uyari button:active,
+  .malzeme-kutu button:active, .as-dugme:active{transform:scale(.97); transition-duration:.08s}
+  .adim[aria-pressed="true"]{box-shadow:inset 3px 0 0 var(--vurgu), 0 0 0 2px var(--vurgu-soft), 0 6px 18px rgba(13,110,127,.10)}
+  .secim button[aria-pressed="true"]{box-shadow:0 4px 14px color-mix(in srgb, var(--vurgu) 30%, transparent)}
+  /* gönderim durumu */
+  .banner{padding:11px 13px; border-radius:12px; margin-bottom:12px; font-weight:600; font-size:14px; line-height:1.4;
+    background:var(--yuzey2); color:var(--ink); border:1px solid var(--cizgi)}
+  .banner.ok{background:var(--ok-soft); color:var(--ok); border-color:transparent}
+  .banner.hata{background:var(--hata-soft); color:var(--hata); border-color:var(--hata)}
+  .banner.warn{background:var(--uyari-soft); color:var(--uyari); border-color:transparent}
+  /* yüzen bildirim (kayıt gitti) */
+  .hk-bildirim{position:fixed; z-index:60; left:50%; top:calc(12px + env(safe-area-inset-top, 0px));
+    transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100% - 32px);
+    padding:10px 16px 10px 10px; border-radius:999px; background:var(--ink); color:var(--bg);
+    font-weight:600; font-size:14.5px; box-shadow:0 10px 30px rgba(0,0,0,.28); pointer-events:none}
+  .hk-bildirim i{flex:0 0 26px; height:26px; border-radius:50%; display:grid; place-items:center; font-style:normal;
+    background:var(--ok); color:#fff; font-size:14px}
+  .hk-bildirim.hata i{background:var(--hata)}
+  .hk-bildirim span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  /* ses düğmesi (giriş satırında) */
+  .giris-durum .hk-ses{margin-left:auto}
+  .giris-durum .hk-ses + button{margin-left:0}
+  /* QR okuyucu: tarama çizgisi */
+  .tarayici .cerceve::after{content:""; position:absolute; left:8%; right:8%; top:12%; height:2px; border-radius:2px;
+    background:linear-gradient(90deg, transparent, #5FE3EC, transparent); box-shadow:0 0 12px #5FE3EC;
+    animation:hk-tara 2.2s ease-in-out infinite alternate}
+  @keyframes hk-tara{ to{ top:86% } }
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important} }
 </style>
 </head>
 <body>
@@ -4268,6 +4320,10 @@ const KB = [
   n:"Hafta sonu da aynı: süre senin QR / kayıt saatlerinden alınır.",b:["geri-baslangic","saatler","devam-ediyor","fm-haftasonu"]},
  {id:"durus-diger",k:"Duraklatma",s:["Neden listede yok","diğer seçeneği"],a:["diger","x99","listede yok","uygun yok","aciklama"],
   y:"Uygun neden yoksa <b>X99 · Diğer</b> seç ve kısa bir açıklama yaz; açıklama zorunludur.",b:["durus-neden"]},
+ {id:"kayit-sesi",k:"Ses",s:["Kayıt gidince ses çıkıyor","sesi nasıl kapatırım"],a:["kayit sesi","ses","bip","sesi kapat","sesi ac","titresim","titreme"],
+  y:"Kayıt tabloya yazılınca telefon kısa bir <b>«ding»</b> sesi çıkarır ve hafifçe titrer; reddedilen kayıtta ses daha kalındır. Üstte yeşil bir bildirim de kayar gelir.",
+  d:["Giriş satırındaki <span class=ui>🔊 Ses</span> düğmesine dokun: ses kapanır (<span class=ui>🔇 Ses</span>).","Yeniden açmak için aynı düğmeye dokun.","Ayar yalnız bu telefonda saklanır."],
+  n:"Ses yalnız bilgi içindir; kaydın gidip gitmediğini her zaman ekrandaki yeşil «✓ Gönderildi» yazısından kontrol et.",b:["gonderme"]},
  {id:"tezgah-qr",k:"Tezgah",s:["Tezgah arızalı, iş emri yok, nasıl girerim","tezgah QR'ı ne işe yarar","iş yok tezgah boş"],a:["tezgah qr","tezgah karekod","tezgah durusu","tezgah bos","is yok","is olmadi","servis geldi","bakim girisi","ariza girisi","tezgah calismiyor"],
   y:"Tezgahın kendisi durduğunda (arıza / servis, planlı bakım, enerji kesintisi, iş yok) tezgahın üstündeki <b>tezgah QR</b>'ını okut. Bu kayıt iş emrine bağlı değildir.",
   d:["Tezgahın üstündeki QR'ı telefonla ya da uygulamadaki <span class=ui>📷 QR</span> ile okut.","Giriş yoksa sicil ve Authenticator kodunu yaz (iş emri girişiyle aynı).","<span class=ui>Duruş nedeni</span>ni seç: A arıza / servis · B bakım · E enerji · <b>I01 İş yok</b> · X99 diğer.","Başlangıç tezgahın durduğu andır; geç giriyorsan gerçek saati yaz (en çok 3 gün geriye).","Tezgah yeniden çalışınca aynı QR'ı okut ve <span class=ui>Duruşu bitir</span>. Bitmiş duruşu tek seferde girmek için «Duruş bitti» kutusunu işaretle."],
@@ -4442,6 +4498,7 @@ const SOZLUK = [
  ["QR saati","qr saati",["giriş saati","başlangıç saati","geliş saati","işe geliş","saat değişmiyor","QR saati"]],
  ["Başlangıç önerisi","baslangic saati",["başlangıç saati nereden","önceki saat geliyor","önceki saat","önceki saati","önceki kaydın saati","başlangıç önceki","saat önceki kayıttan","başlangıç neden","önerilen saat"]],
  ["Geriye dönük başlangıç","geriye donuk",["geriye dönük","geri tarihli","geç girdim","sonradan başladı","önce başladım","başlangıcı düzelt","başlama saatini değiştir","geç okuttum","qr geç","geç okuttum qr"]],
+ ["Kayıt sesi","kayit sesi",["ses","bip sesi","ding","telefon ses çıkarıyor","sesi kapat","sesi aç","ses gelmiyor","titriyor","titreşim"]],
  ["Tezgah QR","tezgah durusu",["tezgah qr","tezgah karekodu","tezgahın qr","tezgah duruşu","iş yok","tezgah boş","servis geldi","tezgah arızalı","makine arızalı iş emri yok","bakım girişi"]],
  ["Geriye dönük bitiş","geriye donuk durdur",["geriye dönük durdurma","geri tarihli durdurma","geç durdurdum","duraklatmayı unuttum","durdurmayı unuttum","daha önce bıraktım","bitişi düzelt","bitiş saatini değiştir","çıkış saatini düzelt","duraklatmayı geç","durdurmayı geç","bitiş saatini","bitiş saati"]],
  ["İlk parça süresi","ilk parca suresi",["ilk parça süresi","ilk parçanın süresi","ilk parça ne kadar sürdü","birinci parça"]],
@@ -4599,6 +4656,184 @@ D.addEventListener("click",()=>acik?kapat():ac());
 $("#as-kapat").addEventListener("click",kapat);
 P.addEventListener("click",ev=>{ if(ev.target===P) kapat(); });
 document.addEventListener("keydown",ev=>{ if(acik && ev.key==="Escape") kapat(); });
+})();
+</script>
+
+
+<script>
+/* ================= HAREKET KATMANI =================
+   Videodaki üç ayrıntı: 1) yay (doğrusal değil), 2) sıralı geliş (i × 70 ms),
+   3) küçük dokunuşlar: %5 taşma, hızlı harekette bulanıklık, oturuşta kısa ses.
+   Yalnız görünüm: kayıt, kural ve akış kodu değişmez; öğeler gözlemlenir (MutationObserver). */
+(function () {
+  "use strict";
+  var AZ = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  var YAY = "linear(0, 0.0284, 0.0924, 0.1779, 0.2741, 0.3732, 0.4749, 0.5648, 0.6461, 0.718, 0.78, 0.8351, 0.8781, 0.9131, 0.941, 0.9627, 0.9801, 0.9921, 1.0007, 1.0065, 1.0102, 1.0123, 1.0131, 1.013, 1.0123, 1.0113, 1.0101, 1.0088, 1.0075, 1.0062, 1.0051, 1.0041, 1.0032, 1.0025, 1.0018, 1.0013, 1)", ZIP = "linear(0, 0.0347, 0.1188, 0.2312, 0.3561, 0.4816, 0.5997, 0.7054, 0.792, 0.8674, 0.9271, 0.9725, 1.0052, 1.0272, 1.0405, 1.0469, 1.0486, 1.0468, 1.0426, 1.0371, 1.031, 1.0249, 1.0194, 1.0143, 1.0099, 1.0063, 1.0034, 1.0012, 0.9997, 0.9987, 0.998, 0.9977, 0.9976, 0.9977, 0.9979, 0.9982, 1)";
+  var lin = window.CSS && CSS.supports && CSS.supports("transition-timing-function", "linear(0, 1)");
+  if (!lin) { YAY = "cubic-bezier(.2,.9,.3,1.02)"; ZIP = "cubic-bezier(.25,1.35,.5,1)"; }
+  function $(q) { return document.querySelector(q); }
+  function oynat(el, kare, sure, egri, gec) {
+    if (AZ.matches || !el || !el.animate) return null;
+    try { return el.animate(kare, { duration: sure, easing: egri, delay: gec || 0, fill: "backwards" }); } catch (e) { return null; }
+  }
+  var GELIS = [{ opacity: 0, transform: "translateY(14px) scale(.985)" }, { opacity: 1, transform: "none" }];
+  function sirali(l, bas) {
+    var n = 0;
+    Array.prototype.forEach.call(l, function (el) {
+      if (el.hidden || el.nodeType !== 1) return;
+      oynat(el, GELIS, 650, YAY, (bas || 0) + Math.min(n++, 10) * 70);
+    });
+  }
+
+  /* --- ses: kısa, kısık; ilk dokunuşta hazırlanır (telefon tarayıcıları sesi ancak dokunuştan sonra açar) --- */
+  var ctx = null;
+  function sesAcik() { try { return localStorage.getItem("muif-ses") !== "0"; } catch (e) { return true; } }
+  function hazirla() {
+    try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === "suspended") ctx.resume(); } catch (e) { ctx = null; }
+  }
+  document.addEventListener("pointerdown", hazirla, { once: true, passive: true });
+  function ses(tur) {
+    if (!sesAcik() || !ctx) return;
+    try {
+      var t = ctx.currentTime, l = tur === "ok" ? [[880, 0], [1318, .065]] : [[262, 0], [196, .1]];
+      l.forEach(function (n) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = tur === "ok" ? "sine" : "triangle"; o.frequency.value = n[0];
+        g.gain.setValueAtTime(0.0001, t + n[1]);
+        g.gain.exponentialRampToValueAtTime(.11, t + n[1] + .012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + n[1] + .17);
+        o.connect(g); g.connect(ctx.destination); o.start(t + n[1]); o.stop(t + n[1] + .2);
+      });
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(tur === "ok" ? 12 : [20, 40, 20]); } catch (e) {}
+  }
+  function sesDugmesi() {
+    var gd = $("#giris-durum"); if (!gd || gd.querySelector(".hk-ses")) return;
+    var b = document.createElement("button"); b.type = "button"; b.className = "hk-ses";
+    function yaz() { var a = sesAcik(); b.textContent = a ? "🔊 Ses" : "🔇 Ses"; b.title = a ? "Kayıt sesi açık — kapatmak için dokunun" : "Kayıt sesi kapalı — açmak için dokunun"; b.setAttribute("aria-pressed", a ? "true" : "false"); }
+    b.addEventListener("click", function () {
+      try { localStorage.setItem("muif-ses", sesAcik() ? "0" : "1"); } catch (e) {}
+      yaz(); hazirla(); ses("ok");
+    });
+    yaz(); gd.insertBefore(b, gd.querySelector("#g-cikis"));
+  }
+
+  /* --- yüzen bildirim: sağdan bulanık gelir, %5 taşar, oturduğu anda ses --- */
+  var bildirim = null, bZaman = 0;
+  function bildir(metin, tur) {
+    if (bildirim) bildirim.remove();
+    var d = document.createElement("div"); d.className = "hk-bildirim" + (tur === "ok" ? "" : " hata");
+    d.setAttribute("role", "status");
+    var i = document.createElement("i"); i.textContent = tur === "ok" ? "✓" : "!";
+    var sp = document.createElement("span"); sp.textContent = metin;
+    d.appendChild(i); d.appendChild(sp); document.body.appendChild(d); bildirim = d;
+    var a = oynat(d, [{ transform: "translateX(calc(-50% + 70vw))", filter: "blur(10px)", opacity: 0 },
+                      { transform: "translateX(calc(-50% + 18vw))", filter: "blur(4px)", opacity: 1, offset: .3 },
+                      { transform: "translateX(-50%)", filter: "blur(0)", opacity: 1 }], 750, ZIP);
+    setTimeout(function () { ses(tur); }, a ? 230 : 0);       // pozisyon hedefe vardığı an
+    clearTimeout(bZaman);
+    bZaman = setTimeout(function () {
+      var c = oynat(d, [{ opacity: 1, transform: "translateX(-50%)" }, { opacity: 0, transform: "translateX(-50%) translateY(-14px) scale(.96)" }], 260, "ease-in");
+      function sil() { if (bildirim === d) bildirim = null; d.remove(); }
+      if (c) c.onfinish = sil; else sil();
+    }, tur === "ok" ? 2600 : 4200);
+  }
+
+  function basla() {
+    /* 1) adım listesi: yeni iş emri / adım sayısı değişince sıralı gelir (her yenilemede değil) */
+    var liste = $("#adim-listesi"), imza = "";
+    if (liste) new MutationObserver(function () {
+      var y = (($("#k-ie") || {}).textContent || "") + "|" + liste.children.length;
+      if (y !== imza && liste.children.length) { imza = y; sirali(liste.children); }
+    }).observe(liste, { childList: true });
+
+    /* 2) açılan kutular: yayla yerine oturur; form açılınca içi sıralı gelir */
+    var KUTU = ["#teyit", "#cikti", "#giris-kart", "#islerim", "#kapanis-genel", "#devral-kutu", "#devam-kutu",
+                "#malzeme-kutu", "#kural-uyari", "#kapanis-kutu", "#yonetici-kutu", "#sira-duzen", "#ekle-sec",
+                "#yk-onay", "#bekleyen", "#qr-tara-buyuk", "#giris-durum"];
+    var gizliydi = new WeakMap();
+    KUTU.forEach(function (q) {
+      var el = $(q); if (!el) return;
+      gizliydi.set(el, el.hidden);
+      new MutationObserver(function () {
+        var once = gizliydi.get(el); gizliydi.set(el, el.hidden);
+        if (!once || el.hidden) return;
+        if (q === "#teyit" || q === "#cikti") sirali(el.children);
+        else oynat(el, [{ opacity: 0, transform: "translateY(10px) scale(.98)" }, { opacity: 1, transform: "none" }], 650, YAY);
+      }).observe(el, { attributes: true, attributeFilter: ["hidden"] });
+    });
+    /* «İşlerim» ve kapanış listesi satırları */
+    ["#islerim", "#kapanis-genel"].forEach(function (q) {
+      var el = $(q), son = "";
+      if (el) new MutationObserver(function () {
+        var y = el.children.length + "|" + (el.textContent || "").length;
+        if (y !== son && !el.hidden) { son = y; sirali(el.children, 60); }
+      }).observe(el, { childList: true });
+    });
+
+    /* 3) asistan: alt çekmece yayla açılır, mesajlar sırayla belirir */
+    var as = $("#asistan"), asOnce = as ? as.hidden : true;
+    if (as) new MutationObserver(function () {
+      var o = asOnce; asOnce = as.hidden;
+      if (!o || as.hidden) return;
+      oynat(as, [{ backgroundColor: "rgba(10,18,24,0)" }, { backgroundColor: "rgba(10,18,24,.45)" }], 260, "ease-out");
+      oynat(as.querySelector(".as-panel"), [{ transform: "translateY(104%)" }, { transform: "none" }], 650, YAY);
+    }).observe(as, { attributes: true, attributeFilter: ["hidden"] });
+    var so = $("#as-sohbet");
+    if (so) new MutationObserver(function (m) {
+      var n = 0;
+      m.forEach(function (r) { Array.prototype.forEach.call(r.addedNodes, function (d) {
+        if (d.nodeType === 1) oynat(d, [{ opacity: 0, transform: "translateY(10px) scale(.97)" }, { opacity: 1, transform: "none" }], 600, ZIP, Math.min(n++, 6) * 70);
+      }); });
+    }).observe(so, { childList: true });
+
+    /* 4) gönderim sonucu: yüzen bildirim + ses; ret / hata: kutu sallanır */
+    var gd = $("#gonderim-durum"), sonMetin = "";
+    if (gd) new MutationObserver(function () {
+      var m = gd.textContent || "", c = gd.className || "";
+      if (gd.hidden || m === sonMetin) return;
+      sonMetin = m;
+      if (/\bok\b/.test(c)) {
+        var sa = /\((\d{2}:\d{2})/.exec(m), ilk = m.replace(/^✓\s*/, "").split(/\s+[—(]/)[0];
+        bildir(/^Gönderildi$/i.test(ilk) ? "Kayıt gönderildi" + (sa ? " · " + sa[1] : "") : (ilk || "Kayıt gönderildi"), "ok");
+        oynat(gd, [{ transform: "scale(.96)", opacity: .4 }, { transform: "none", opacity: 1 }], 750, ZIP);
+      } else if (/\bhata\b/.test(c)) {
+        bildir("Kayıt reddedildi — nedeni aşağıda", "hata");
+        oynat(gd, [{ transform: "translateX(0)" }, { transform: "translateX(-7px)" }, { transform: "translateX(6px)" },
+                   { transform: "translateX(-4px)" }, { transform: "translateX(2px)" }, { transform: "none" }], 420, "ease-out");
+      } else if (/\bwarn\b/.test(c)) {
+        oynat(gd, [{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], 650, YAY);
+      }
+    }).observe(gd, { attributes: true, attributeFilter: ["class", "hidden"], childList: true, characterData: true, subtree: true });
+
+    /* 5) künye: iş emri değişince numara yayla gelir */
+    var ie = $("#k-ie"), ieSon = ie ? ie.textContent : "";
+    if (ie) new MutationObserver(function () {
+      if (ie.textContent === ieSon) return; ieSon = ie.textContent;
+      oynat(ie, [{ opacity: 0, transform: "translateY(8px)", filter: "blur(4px)" }, { opacity: 1, transform: "none", filter: "blur(0)" }], 650, YAY);
+      var r = document.querySelectorAll(".kunye .kv");
+      sirali(r, 80);
+    }).observe(ie, { childList: true, characterData: true, subtree: true });
+
+    /* giriş yapılınca (body.girissiz kalkınca) gizli duran liste o an sırayla gelir */
+    var girissiz = document.body.classList.contains("girissiz");
+    new MutationObserver(function () {
+      var g = document.body.classList.contains("girissiz");
+      if (girissiz && !g && liste) {
+        sirali(document.querySelectorAll(".kunye .rozetler, .kunye .ilerleme"));
+        // giriş hemen ardından listeyi yeniden çizer: o çizim sırayla gelsin; çizim olmazsa mevcut liste
+        imza = ""; var ilk = liste.firstElementChild;
+        sirali(liste.children, 60);                  // yeniden çizim gelene dek eski liste görünmesin (tek karelik parlama)
+        setTimeout(function () { if (liste.firstElementChild === ilk) { imza = (($("#k-ie") || {}).textContent || "") + "|" + liste.children.length; sirali(liste.children, 60); } }, 120);
+      }
+      girissiz = g;
+    }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+
+    sesDugmesi();
+    /* ilk açılış: üst çubuk ve görünen bölümler sırayla */
+    sirali(document.querySelectorAll(".kunye > *"));
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", basla); else basla();
 })();
 </script>
 
